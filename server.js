@@ -474,4 +474,8 @@ function joinRoom(socket, room, name) {
     io.to(room.id).emit('updateLobby', room.players);
 }
 
-server.listen(3000, () => console.log('Domino server → http://localhost:3000'));
+if (process.env.NODE_ENV !== 'production') {
+    server.listen(3000, () => console.log('Domino server → http://localhost:3000'));
+}
+
+module.exports = server;
