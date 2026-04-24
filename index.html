@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Domino Online — 4 Pemain Multiplayer</title>
+    <meta name="description" content="Game Domino Online 4 Pemain - Mainkan bersama teman atau lawan AI secara real-time">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- ====== LOBBY SCREEN ====== -->
+<div id="lobby-screen" class="screen active">
+    <div class="lobby-card">
+        <div class="lobby-logo">🁣</div>
+        <h1>Domino Online</h1>
+        <p class="lobby-sub">4 Pemain • Online Multiplayer</p>
+
+        <input id="my-name-input" class="name-input" type="text" placeholder="Nama kamu" maxlength="16" autocomplete="off">
+
+        <!-- Main Menu -->
+        <div id="menu-main">
+            <button id="btn-quickplay" class="btn btn-primary btn-block">🚀 Main Cepat</button>
+            <div class="btn-row">
+                <button id="btn-create" class="btn btn-secondary">➕ Buat Room</button>
+                <button id="btn-join"   class="btn btn-secondary">🔑 Join Room</button>
+            </div>
+        </div>
+
+        <!-- Create Room -->
+        <div id="menu-create" class="hidden">
+            <h3>Buat Private Room</h3>
+            <input id="create-pass" class="name-input" type="text" placeholder="Password (opsional)" autocomplete="off">
+            <div class="btn-row">
+                <button id="btn-create-back"    class="btn btn-ghost">← Kembali</button>
+                <button id="btn-create-confirm" class="btn btn-primary">Buat Room</button>
+            </div>
+        </div>
+
+        <!-- Join Room -->
+        <div id="menu-join" class="hidden">
+            <h3>Join Room</h3>
+            <input id="join-code" class="name-input" type="text" placeholder="Kode 6 digit"
+                maxlength="6" style="text-align:center;letter-spacing:4px;font-weight:800;font-size:1.2rem;" autocomplete="off">
+            <input id="join-pass" class="name-input" type="text" placeholder="Password (jika ada)" autocomplete="off">
+            <div class="btn-row">
+                <button id="btn-join-back"    class="btn btn-ghost">← Kembali</button>
+                <button id="btn-join-confirm" class="btn btn-primary">Join</button>
+            </div>
+        </div>
+
+        <!-- Waiting Lobby -->
+        <div id="menu-waiting" class="hidden">
+            <div class="room-code-box">
+                Kode Room: <strong id="room-code-display">------</strong>
+                <span id="room-type-label"></span>
+            </div>
+            <div class="lobby-players-header">
+                <span>Pemain</span>
+                <span id="player-list-count">0/4</span>
+            </div>
+            <ul id="player-list"></ul>
+            <div id="host-controls" class="hidden">
+                <button id="btn-start-game" class="btn btn-primary btn-block">▶ Mulai Game</button>
+                <p class="hint">Slot kosong akan diisi AI otomatis</p>
+            </div>
+            <p id="guest-hint" class="hint">Menunggu host memulai...</p>
+        </div>
+
+        <p id="lobby-error" class="error-msg"></p>
+        <div id="conn-status" class="conn-status connecting">⚡ Menghubungkan ke server...</div>
+    </div>
+</div>
+
+<!-- ====== GAME SCREEN ====== -->
+<div id="game-screen" class="screen">
+
+    <!-- Top: Score Bar -->
+    <div id="score-bar">
+        <div id="score-chips"></div>
+        <div id="turn-info">Giliran: <span id="turn-player-name">-</span></div>
+    </div>
+
+    <!-- Opponent Top -->
+    <div class="opp-seat" id="seat-top">
+        <div class="opp-profile">
+            <div class="opp-avatar" id="av-top"></div>
+            <div class="opp-meta">
+                <span class="opp-name" id="nm-top">-</span>
+                <span class="opp-score" id="sc-top">0 pts</span>
+            </div>
+            <span class="opp-cardcount" id="cc-top">🂠 0</span>
+        </div>
+        <div class="opp-hand" id="hand-top"></div>
+    </div>
+
+    <!-- Middle: Left | Board | Right -->
+    <div id="middle-row">
+        <!-- Opponent Left -->
+        <div class="opp-seat side-seat" id="seat-left">
+            <div class="opp-profile vertical">
+                <div class="opp-avatar" id="av-left"></div>
+                <span class="opp-name" id="nm-left">-</span>
+                <span class="opp-score" id="sc-left">0 pts</span>
+                <span class="opp-cardcount" id="cc-left">🂠 0</span>
+            </div>
+            <div class="opp-hand side-hand" id="hand-left"></div>
+        </div>
+
+        <!-- Board -->
+        <div id="board-area">
+            <div id="board-meta">
+                <span id="boneyard-info">📦 0</span>
+                <span id="round-label">Ronde 1</span>
+            </div>
+            <div id="board-scroll">
+                <div id="board"></div>
+            </div>
+            <div id="pitus-notice" class="hidden">⚠️ PITUS!</div>
+        </div>
+
+        <!-- Opponent Right -->
+        <div class="opp-seat side-seat" id="seat-right">
+            <div class="opp-hand side-hand" id="hand-right"></div>
+            <div class="opp-profile vertical">
+                <div class="opp-avatar" id="av-right"></div>
+                <span class="opp-name" id="nm-right">-</span>
+                <span class="opp-score" id="sc-right">0 pts</span>
+                <span class="opp-cardcount" id="cc-right">🂠 0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- My Hand (Bottom) -->
+    <div id="my-area">
+        <div id="my-header">
+            <div id="my-profile">
+                <div id="my-avatar" class="opp-avatar"></div>
+                <div>
+                    <div id="my-name-display">Kamu</div>
+                    <div id="my-score-display" class="opp-score">0 pts</div>
+                </div>
+            </div>
+            <div id="my-pip-info"></div>
+            <div id="timer-wrap">
+                <div id="timer-bar-bg">
+                    <div id="timer-bar"></div>
+                </div>
+                <span id="timer-num">-</span>
+            </div>
+        </div>
+        <div id="my-hand"></div>
+        <div id="action-bar">
+            <button id="btn-draw" class="btn btn-secondary hidden">🎴 Ambil Kartu</button>
+            <button id="btn-pass" class="btn btn-danger  hidden">⏭ Lewati Giliran</button>
+        </div>
+    </div>
+</div>
+
+<!-- ====== SIDE SELECT OVERLAY ====== -->
+<div id="side-overlay" class="overlay hidden">
+    <div class="overlay-card">
+        <p class="overlay-title">Taruh di mana?</p>
+        <div id="side-choices">
+            <button id="btn-side-left"  class="btn btn-secondary side-opt">← Kiri<br><span id="left-val">?</span></button>
+            <div id="pending-tile-preview"></div>
+            <button id="btn-side-right" class="btn btn-secondary side-opt">Kanan →<br><span id="right-val">?</span></button>
+        </div>
+        <button id="btn-side-cancel" class="btn btn-ghost">Batal</button>
+    </div>
+</div>
+
+<!-- ====== ROUND END OVERLAY ====== -->
+<div id="round-overlay" class="overlay hidden">
+    <div class="overlay-card">
+        <div id="round-icon">🏆</div>
+        <h2 id="round-title">Ronde Selesai</h2>
+        <p  id="round-sub"></p>
+        <div id="round-score-list"></div>
+        <button id="btn-next-round" class="btn btn-primary btn-block">▶ Ronde Berikutnya</button>
+    </div>
+</div>
+
+<!-- ====== GAME END OVERLAY ====== -->
+<div id="gameover-overlay" class="overlay hidden">
+    <div class="overlay-card">
+        <div id="gameover-icon">🎊</div>
+        <h2 id="gameover-title">Game Selesai!</h2>
+        <div id="gameover-list"></div>
+        <button id="btn-play-again" class="btn btn-primary btn-block">🔄 Main Lagi</button>
+    </div>
+</div>
+
+<!-- Socket.IO dari CDN -->
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

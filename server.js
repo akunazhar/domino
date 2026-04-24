@@ -1,0 +1,471 @@
+'use strict';
+const express = require('express');
+const http    = require('http');
+const { Server } = require('socket.io');
+
+const app    = express();
+const server = http.createServer(app);
+const io     = new Server(server, { cors: { origin: '*' } });
+app.use(express.static(__dirname));
+
+// ─── TILE ────────────────────────────────────────────────
+class Tile {
+    constructor(l, r) {
+        this.l = l; this.r = r;
+        this.isDouble = l === r;
+    }
+    get pips() { 
+        if (this.l === 0 && this.r === 0) return 25;
+        return this.l + this.r; 
+    }
+    matches(v)  { return this.l === v || this.r === v; }
+    flipped()   { return new Tile(this.r, this.l); }
+    toJSON()    { return { l: this.l, r: this.r, isDouble: this.isDouble }; }
+}
+
+// ─── BOARD ───────────────────────────────────────────────
+class Board {
+    constructor() { this.tiles = []; this.leftVal = null; this.rightVal = null; }
+    isEmpty() { return this.tiles.length === 0; }
+
+    place(tile, side) {
+        if (this.isEmpty()) {
+            this.tiles.push({ l: tile.l, r: tile.r, ori: tile.isDouble ? 'H' : 'V' });
+            this.leftVal = tile.l; this.rightVal = tile.r; return;
+        }
+        if (side === 'left') {
+            let t = tile;
+            if (t.r !== this.leftVal) t = t.flipped();
+            this.tiles.unshift({ l: t.l, r: t.r, ori: t.isDouble ? 'H' : 'V' });
+            this.leftVal = t.l;
+        } else {
+            let t = tile;
+            if (t.l !== this.rightVal) t = t.flipped();
+            this.tiles.push({ l: t.l, r: t.r, ori: t.isDouble ? 'H' : 'V' });
+            this.rightVal = t.r;
+        }
+    }
+
+    getPlayableSides(tile, boardEmpty) {
+        if (boardEmpty) return ['start'];
+        const sides = [];
+        if (tile.matches(this.leftVal))  sides.push('left');
+        if (tile.matches(this.rightVal)) sides.push('right');
+        return sides;
+    }
+
+    isBlocked(hands) {
+        if (this.isEmpty()) return false;
+        return hands.every(hand =>
+            hand.every(t => !t.matches(this.leftVal) && !t.matches(this.rightVal))
+        );
+    }
+
+    reset() { this.tiles = []; this.leftVal = null; this.rightVal = null; }
+    toJSON() { return { tiles: this.tiles, leftVal: this.leftVal, rightVal: this.rightVal }; }
+}
+
+// ─── HELPERS ─────────────────────────────────────────────
+function generateDeck() {
+    const d = [];
+    for (let i = 0; i <= 6; i++)
+        for (let j = i; j <= 6; j++) d.push(new Tile(i, j));
+    return d;
+}
+function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+function findStartingPlayer(hands) {
+    // Find player with highest double
+    for (let d = 6; d >= 0; d--)
+        for (let i = 0; i < hands.length; i++)
+            if (hands[i].some(t => t.l === d && t.r === d)) return i;
+    // If no doubles found, player with highest single tile starts
+    let best = 0, bestVal = -1;
+    for (let i = 0; i < hands.length; i++) {
+        const maxPip = Math.max(...hands[i].map(t => t.l + t.r));
+        if (maxPip > bestVal) { bestVal = maxPip; best = i; }
+    }
+    return best;
+}
+
+// ─── ROOMS ───────────────────────────────────────────────
+const rooms = {};
+
+function makeRoom(roomId, isPublic) {
+    return {
+        id: roomId, isPublic,
+        password: null,
+        players: [],              // [{id, name, index}]
+        scores: [0, 0, 0, 0],    // total scores per seat
+        round: 0,
+        status: 'lobby',          // lobby | playing | round-end | game-end
+        board: new Board(),
+        hands: [[], [], [], []],
+        boneyard: [],
+        turn: 0,
+        turnTime: 20,
+        timerInterval: null,
+        aiTimeout: null,
+        lastRoundWinner: null,
+        passCount: 0,             // count consecutive passes (for stuck detection)
+    };
+}
+
+function startRound(room) {
+    room.round++;
+    room.board.reset();
+    room.passCount = 0;
+
+    // For < 4 human players, deal 7 to each of 4 seats, rest to boneyard
+    const deck = shuffle(generateDeck());
+    room.hands = [[], [], [], []];
+    for (let i = 0; i < 4; i++)
+        for (let c = 0; c < 7; c++) room.hands[i].push(deck.pop());
+    room.boneyard = deck; // Will be empty for exactly 4 players (28 tiles total)
+
+    // For games with <4 human players we add extra tiles to boneyard
+    // by only dealing 6 cards to some seats if needed - actually standard is 7 each
+    // The boneyard is empty for 4 players which is correct per standard domino rules
+
+    if (room.lastRoundWinner !== null) {
+        room.turn = room.lastRoundWinner;
+    } else {
+        room.turn = findStartingPlayer(room.hands);
+    }
+    room.turnTime = 20;
+    room.status   = 'playing';
+    io.to(room.id).emit('roundStarted', buildState(room));
+    startTimer(room.id);
+    scheduleAI(room);
+}
+
+function buildState(room) {
+    return {
+        board:    room.board.toJSON(),
+        hands:    room.hands.map(h => h.map(t => t.toJSON())),
+        boneyard: room.boneyard.length,
+        turn:     room.turn,
+        turnTime: room.turnTime,
+        scores:   room.scores,
+        round:    room.round,
+        status:   room.status,
+        players:  room.players,
+    };
+}
+
+// ─── MOVE EXECUTION ──────────────────────────────────────
+function executeMove(room, pIdx, tileData, side) {
+    const hand = room.hands[pIdx];
+    // Find tile - match both orientations since client may send as-is
+    const tileObj = hand.find(t =>
+        (t.l === tileData.l && t.r === tileData.r) ||
+        (t.l === tileData.r && t.r === tileData.l)
+    );
+    if (!tileObj) return false;
+
+    room.hands[pIdx] = hand.filter(t => t !== tileObj);
+    room.board.place(tileObj, side === 'start' ? 'right' : side);
+    room.passCount = 0; // Reset pass counter on successful play
+
+    if (room.hands[pIdx].length === 0) {
+        // Winner gets 0 additional points — end round now
+        endRound(room, pIdx, false); return true;
+    }
+    nextTurn(room);
+    // No aggressive pitus check here — let the game continue until
+    // all 4 players consecutively pass (passCount >= 4)
+    return true;
+}
+
+function nextTurn(room) {
+    room.turn     = (room.turn + 1) % 4;
+    room.turnTime = 20;
+    io.to(room.id).emit('gameStateUpdate', buildState(room));
+    scheduleAI(room);
+}
+
+function endRound(room, winnerId, pitus) {
+    if (room.timerInterval) { clearInterval(room.timerInterval); room.timerInterval = null; }
+    if (room.aiTimeout)     { clearTimeout(room.aiTimeout);      room.aiTimeout     = null; }
+
+    const roundScores = [0, 0, 0, 0];
+    
+    if (pitus) {
+        // Pitus: The player with the lowest pip count wins and gets 0 points!
+        const pipCounts = room.hands.map(h => h.reduce((s, t) => s + t.pips, 0));
+        const minPips = Math.min(...pipCounts);
+        winnerId = pipCounts.indexOf(minPips);
+    }
+
+    if (winnerId !== null) {
+        // Winner gets 0 points. All other players get their remaining pip count as penalty.
+        room.hands.forEach((h, i) => {
+            if (i !== winnerId) roundScores[i] = h.reduce((s, t) => s + t.pips, 0);
+        });
+    }
+
+    roundScores.forEach((s, i) => room.scores[i] += s);
+    room.lastRoundWinner = winnerId;
+
+    // Game end if anyone >= 75
+    const gameOver = room.scores.some(s => s >= 75);
+    room.status = gameOver ? 'game-end' : 'round-end';
+
+    io.to(room.id).emit('roundEnd', {
+        pitus, winnerId, roundScores,
+        scores: room.scores, status: room.status,
+        players: room.players,
+    });
+}
+
+// ─── TIMER ───────────────────────────────────────────────
+function startTimer(roomId) {
+    const room = rooms[roomId];
+    if (!room) return;
+    if (room.timerInterval) clearInterval(room.timerInterval);
+    room.timerInterval = setInterval(() => {
+        const r = rooms[roomId];
+        if (!r || r.status !== 'playing') {
+            clearInterval(r?.timerInterval);
+            return;
+        }
+        r.turnTime--;
+        if (r.turnTime <= 0) {
+            clearInterval(r.timerInterval); r.timerInterval = null;
+            autoPlay(r);
+        } else {
+            io.to(roomId).emit('timerTick', { turn: r.turn, turnTime: r.turnTime });
+        }
+    }, 1000);
+}
+
+function autoPlay(room) {
+    if (room.status !== 'playing') return;
+    const pIdx = room.turn;
+    const hand = room.hands[pIdx];
+    const board = room.board;
+
+    let played = false;
+    for (const tile of hand) {
+        const sides = board.getPlayableSides(tile, board.isEmpty());
+        if (sides.length) {
+            executeMove(room, pIdx, tile, sides[0]);
+            played = true; break;
+        }
+    }
+    if (!played) {
+        if (room.boneyard.length) {
+            room.hands[pIdx].push(room.boneyard.pop());
+            room.turnTime = 20;
+            io.to(room.id).emit('gameStateUpdate', buildState(room));
+            // Try to play the drawn tile
+            const newTile = room.hands[pIdx][room.hands[pIdx].length - 1];
+            const sides = board.getPlayableSides(newTile, board.isEmpty());
+            if (sides.length) {
+                executeMove(room, pIdx, newTile, sides[0]);
+            } else {
+                // Drew but still can't play — pass to next
+                room.passCount = (room.passCount || 0) + 1;
+                if (room.passCount >= 4) {
+                    endRound(room, null, true); return;
+                }
+                nextTurn(room);
+            }
+        } else {
+            // Can't play, no boneyard — pass turn, track consecutive passes
+            room.passCount = (room.passCount || 0) + 1;
+            if (room.passCount >= 4) {
+                // All 4 players passed consecutively = true buntu (pitus)
+                endRound(room, null, true);
+                return;
+            }
+            nextTurn(room);
+        }
+    }
+    if (room.status === 'playing') startTimer(room.id);
+}
+
+// ─── AI ──────────────────────────────────────────────────
+function scheduleAI(room) {
+    if (room.aiTimeout) { clearTimeout(room.aiTimeout); room.aiTimeout = null; }
+    if (room.status !== 'playing') return;
+
+    const pIdx    = room.turn;
+    const isHuman = room.players.some(p => p.index === pIdx);
+    if (isHuman) return;
+
+    room.aiTimeout = setTimeout(() => {
+        const r = rooms[room.id];
+        if (!r || r.status !== 'playing' || r.turn !== pIdx) return;
+        if (r.timerInterval) { clearInterval(r.timerInterval); r.timerInterval = null; }
+        autoPlay(r);
+        if (r.status === 'playing') startTimer(r.id);
+    }, 1500);
+}
+
+// ─── SOCKET.IO ───────────────────────────────────────────
+io.on('connection', socket => {
+    console.log('Connected:', socket.id);
+
+    socket.on('findPublicMatch', ({ name }) => {
+        let room = Object.values(rooms).find(r => r.isPublic && r.players.length < 4 && r.status === 'lobby');
+        if (!room) {
+            const roomId = Math.random().toString(36).slice(2, 8).toUpperCase();
+            room = makeRoom(roomId, true);
+            rooms[roomId] = room;
+        }
+        joinRoom(socket, room, name || 'Player');
+        if (room.players.length === 4) {
+            // Start immediately with 4 players
+            clearTimeout(room._startTimer);
+            room.status = 'playing';
+            startRound(room);
+        } else {
+            // Wait up to 8 seconds for more players, then start with AI
+            clearTimeout(room._startTimer);
+            room._startTimer = setTimeout(() => {
+                const r = rooms[room.id];
+                if (r && r.status === 'lobby') {
+                    r.status = 'playing';
+                    startRound(r);
+                }
+            }, 5000);
+        }
+    });
+
+    socket.on('createRoom', ({ name, password }) => {
+        const roomId = Math.random().toString(36).slice(2, 8).toUpperCase();
+        const room   = makeRoom(roomId, false);
+        room.password = password || null;
+        rooms[roomId] = room;
+        joinRoom(socket, room, name || 'Player');
+    });
+
+    socket.on('joinRoom', ({ roomId, name, password }) => {
+        const room = rooms[roomId?.toUpperCase()];
+        if (!room)                            return socket.emit('error', 'Room tidak ditemukan');
+        if (room.status !== 'lobby')          return socket.emit('error', 'Game sudah dimulai');
+        if (room.players.length >= 4)         return socket.emit('error', 'Room penuh');
+        if (room.password && room.password !== password) return socket.emit('error', 'Password salah');
+        joinRoom(socket, room, name || 'Player');
+    });
+
+    socket.on('startGame', roomId => {
+        const room = rooms[roomId];
+        if (!room || room.status !== 'lobby') return;
+        const host = room.players[0];
+        if (host.id !== socket.id) return;
+        clearTimeout(room._startTimer);
+        room.status = 'playing';
+        startRound(room);
+    });
+
+    socket.on('playTile', ({ roomId, tile, side }) => {
+        const room = rooms[roomId];
+        if (!room || room.status !== 'playing') return;
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player || player.index !== room.turn) return;
+        if (room.timerInterval) { clearInterval(room.timerInterval); room.timerInterval = null; }
+        if (room.aiTimeout)     { clearTimeout(room.aiTimeout);      room.aiTimeout     = null; }
+        if (executeMove(room, player.index, tile, side) && room.status === 'playing')
+            startTimer(roomId);
+    });
+
+    socket.on('drawTile', roomId => {
+        const room = rooms[roomId];
+        if (!room || room.status !== 'playing') return;
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player || player.index !== room.turn) return;
+        if (!room.boneyard.length) return;
+
+        // Draw up to 3 tiles or until playable
+        let drawn = 0;
+        const board = room.board;
+        while (room.boneyard.length > 0 && drawn < 3) {
+            room.hands[player.index].push(room.boneyard.pop());
+            drawn++;
+            const newTile = room.hands[player.index][room.hands[player.index].length - 1];
+            const sides = board.getPlayableSides(newTile, board.isEmpty());
+            if (sides.length) break; // Got a playable tile, stop drawing
+        }
+        io.to(roomId).emit('gameStateUpdate', buildState(room));
+    });
+
+    socket.on('passTurn', roomId => {
+        const room = rooms[roomId];
+        if (!room || room.status !== 'playing') return;
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player || player.index !== room.turn) return;
+
+        // Only allow pass if no moves and no boneyard
+        const board = room.board;
+        const hand = room.hands[player.index];
+        const canPlay = hand.some(t => board.getPlayableSides(t, board.isEmpty()).length > 0);
+        if (canPlay || room.boneyard.length > 0) return;
+
+        if (room.timerInterval) { clearInterval(room.timerInterval); room.timerInterval = null; }
+        if (room.aiTimeout)     { clearTimeout(room.aiTimeout);      room.aiTimeout     = null; }
+
+        // Track consecutive passes — only declare pitus after all 4 pass in a row
+        room.passCount = (room.passCount || 0) + 1;
+        if (room.passCount >= 4) {
+            // All 4 players passed consecutively = true buntu
+            endRound(room, null, true);
+            return;
+        }
+        // Otherwise just move to the next player — game continues!
+        nextTurn(room);
+        if (room.status === 'playing') startTimer(roomId);
+    });
+
+    socket.on('nextRound', roomId => {
+        const room = rooms[roomId];
+        if (!room || room.status !== 'round-end') return;
+        // Any player can trigger next round
+        room.status = 'starting';
+        setTimeout(() => {
+            if (rooms[roomId]) startRound(rooms[roomId]);
+        }, 300);
+    });
+
+    socket.on('disconnect', () => {
+        Object.values(rooms).forEach(room => {
+            const idx = room.players.findIndex(p => p.id === socket.id);
+            if (idx !== -1) {
+                const playerName = room.players[idx].name;
+                room.players.splice(idx, 1);
+                io.to(room.id).emit('updateLobby', room.players);
+                io.to(room.id).emit('playerLeft', { name: playerName });
+
+                // If game was playing and no human players left, clean up
+                if (room.players.length === 0) {
+                    if (room.timerInterval) clearInterval(room.timerInterval);
+                    if (room.aiTimeout) clearTimeout(room.aiTimeout);
+                    if (room._startTimer) clearTimeout(room._startTimer);
+                    delete rooms[room.id];
+                }
+            }
+        });
+    });
+});
+
+function joinRoom(socket, room, name) {
+    const index = room.players.length; // 0–3
+    room.players.push({ id: socket.id, name, index });
+    socket.join(room.id);
+    socket.emit('roomJoined', {
+        roomId: room.id,
+        playerIndex: index,
+        isHost: index === 0,
+        isPublic: room.isPublic,
+        playerCount: room.players.length,
+    });
+    io.to(room.id).emit('updateLobby', room.players);
+}
+
+server.listen(3000, () => console.log('Domino server → http://localhost:3000'));
