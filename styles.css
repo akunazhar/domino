@@ -256,7 +256,7 @@ html,body { width:100%; height:100%; overflow:hidden; font-family:var(--font); b
 
 /* === HAND TILES (putih klasik) === */
 .tile.hand {
-    width:40px; height:80px;
+    width:48px; height:96px;
     flex-direction:column; align-items:center; justify-content:space-around;
     background:linear-gradient(145deg,#ffffff 0%,#f1f2f6 100%);
     border:1px solid rgba(0,0,0,.15);
@@ -278,7 +278,7 @@ html,body { width:100%; height:100%; overflow:hidden; font-family:var(--font); b
 
 /* Dot pada tile tangan: hitam/gelap */
 .tile.hand .dot {
-    width:7px; height:7px;
+    width:8px; height:8px;
     background:#1a1a2e;
     box-shadow:inset 0 1px 2px rgba(0,0,0,.7);
 }
@@ -325,7 +325,7 @@ html,body { width:100%; height:100%; overflow:hidden; font-family:var(--font); b
 #timer-bar { height:100%; width:100%; background:var(--gold); border-radius:3px; transition:width .9s linear, background .3s; }
 #timer-bar.crit { background:var(--red); box-shadow:0 0 10px var(--red); }
 #timer-num { font-size:.8rem; font-weight:700; color:var(--gold); min-width:24px; text-align:right; }
-#my-hand { display:flex; gap:6px; overflow-x:auto; padding:4px 0 6px; min-height:84px; align-items:flex-end; scrollbar-width:thin; scrollbar-color:rgba(241,196,15,.2) transparent; }
+#my-hand { display:flex; gap:6px; overflow-x:auto; padding:4px 0 6px; min-height:104px; align-items:flex-end; scrollbar-width:thin; scrollbar-color:rgba(241,196,15,.2) transparent; }
 #action-bar { display:flex; gap:8px; }
 #action-bar .btn { flex:1; padding:10px; }
 
