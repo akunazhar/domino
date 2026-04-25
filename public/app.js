@@ -260,35 +260,34 @@ function renderBoard(gs) {
         const rowEl = document.createElement('div');
         rowEl.className = 'board-row';
         const isReverse = (rowIndex % 2 !== 0);
-        
-        // ALIGNMENT: 
-        // Baris ganjil (Normal) rata kiri, baris genap (Reverse) rata kanan
-        rowEl.style.justifyContent = isReverse ? 'flex-end' : 'flex-start';
-        if (isReverse) rowEl.classList.add('reverse');
 
-        rowTiles.forEach((t, i) => {
-            const absIdx = rowIndex * maxPerRow + i;
+        // KUNCI PERBAIKAN:
+        // Daripada pakai CSS row-reverse (yang hanya balik posisi tapi tidak balik L/R kartu),
+        // kita balik urutan array secara manual. Lalu kita juga balik L/R setiap kartu.
+        // Sehingga:
+        // - Kartu yang di posisi visual paling kanan (dekat belokan) = kartu pertama array = t.l nyambung ke baris sebelumnya
+        // - Setiap kartu di baris reverse: sisi yang menghadap kiri = t.r, sisi kanan = t.l (karena urutan dibalik)
+        const displayTiles = isReverse ? [...rowTiles].reverse() : rowTiles;
+
+        // Alignment: baris normal rata kiri, baris reverse rata kanan
+        rowEl.style.justifyContent = isReverse ? 'flex-end' : 'flex-start';
+
+        displayTiles.forEach((t, i) => {
+            // Hitung absIdx dari posisi asli di array tiles (bukan posisi visual)
+            const originalIdx = isReverse
+                ? rowIndex * maxPerRow + (rowTiles.length - 1 - i)
+                : rowIndex * maxPerRow + i;
             const isDouble = (t.l === t.r);
             const ori = isDouble ? 'V' : 'H';
-            
+
             let extra = '';
-            if (absIdx === 0) extra = 'tile-head';
-            if (absIdx === tiles.length - 1 && tiles.length > 1) extra = 'tile-tail';
+            if (originalIdx === 0) extra = 'tile-head';
+            if (originalIdx === tiles.length - 1 && tiles.length > 1) extra = 'tile-tail';
 
-            // LOGIKA BERHADAPAN (Symmetry Fix):
-            // Di baris normal (L->R): entry di kiri (t.l), exit di kanan (t.r)
-            // Di baris reverse (R->L): entry di kanan (t.l), exit di kiri (t.r)
-            // Karena 'row-reverse' memutar urutan elemen, kita harus pastikan 
-            // t.l (sisi sambungan) selalu menghadap ke arah kartu sebelumnya.
-            let finalL = t.l;
-            let finalR = t.r;
-
-            if (isReverse) {
-                // Di baris terbalik, kita tukar L dan R agar t.l tetap menjadi 
-                // titik masuk yang menempel ke kartu sebelumnya di sebelah kanan.
-                finalL = t.r;
-                finalR = t.l;
-            }
+            // Baris reverse: karena urutan kartu dibalik, L dan R juga harus dibalik
+            // agar ujung yang "masuk" dari baris sebelumnya selalu ada di sisi kanan visual
+            const finalL = isReverse ? t.r : t.l;
+            const finalR = isReverse ? t.l : t.r;
 
             const el = makeTile(finalL, finalR, ori, extra);
             rowEl.appendChild(el);
