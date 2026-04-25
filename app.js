@@ -1,7 +1,6 @@
 'use strict';
 // ─── STATE ────────────────────────────────────────────────
 const socket = io({
-    transports: ['websocket', 'polling'],
     reconnectionAttempts: 10,
 });
 let myIndex    = -1;
@@ -311,9 +310,9 @@ function getPlayableSides(tile, board, boardEmpty) {
     if (boardEmpty) return ['start'];
     const s = [];
 
-    // 1. Cek kecocokan di seluruh rantai (Potong Tengah)
+    // 1. Cek kecocokan di INTERNAL rantai (Potong Tengah)
     const tiles = board.tiles;
-    for (let i = 0; i < tiles.length; i++) {
+    for (let i = 1; i < tiles.length - 1; i++) {
         if (tile.l === tiles[i].l || tile.l === tiles[i].r || tile.r === tiles[i].l || tile.r === tiles[i].r) {
             if (!s.includes('middle')) s.push('middle');
             break;
@@ -353,18 +352,19 @@ function updateTimer(turn, time) {
 function handleTileClick(tile, sides) {
     if (!gameState || gameState.turn !== myIndex) return;
 
-    if (sides[0] === 'start' || (sides.length === 1 && sides[0] !== 'middle')) {
+    if (sides.length === 1) {
         const side = sides[0] === 'start' ? 'right' : sides[0];
         socket.emit('playTile', { roomId: myRoomId, tile, side });
-    } else if (sides.includes('middle')) {
-        // Jika ada kecocokan di tengah, prioritaskan potong tengah
-        socket.emit('playTile', { roomId: myRoomId, tile, side: 'middle' });
     } else {
-        // Hanya jika ada pilihan Left vs Right (tanpa middle match)
         pendingTile = tile;
         const board = gameState.board;
         setText('left-val',  board.leftVal);
         setText('right-val', board.rightVal);
+        
+        // Tampilkan tombol middle jika tersedia
+        const midBtn = $('btn-side-middle');
+        if (midBtn) midBtn.classList.toggle('hidden', !sides.includes('middle'));
+
         const preview = $('pending-tile-preview');
         if (preview) {
             preview.innerHTML = '';
@@ -377,6 +377,12 @@ function handleTileClick(tile, sides) {
 $('btn-side-left').onclick = () => {
     if (!pendingTile) return;
     socket.emit('playTile', { roomId: myRoomId, tile: pendingTile, side: 'left' });
+    pendingTile = null;
+    hideOverlay('side-overlay');
+};
+$('btn-side-middle').onclick = () => {
+    if (!pendingTile) return;
+    socket.emit('playTile', { roomId: myRoomId, tile: pendingTile, side: 'middle' });
     pendingTile = null;
     hideOverlay('side-overlay');
 };
