@@ -4,7 +4,10 @@ const http    = require('http');
 const path    = require('path');
 const { Server } = require('socket.io');
 
+const compression = require('compression');
+
 const app    = express();
+app.use(compression()); // Kecilkan ukuran data agar lebih cepat terkirim
 const server = http.createServer(app);
 const io     = new Server(server, { cors: { origin: '*' } });
 
@@ -36,18 +39,18 @@ class Board {
 
     place(tile, side) {
         if (this.isEmpty()) {
-            this.tiles.push({ l: tile.l, r: tile.r, ori: tile.isDouble ? 'H' : 'V' });
+            this.tiles.push({ l: tile.l, r: tile.r, ori: tile.isDouble ? 'V' : 'H' });
             this.leftVal = tile.l; this.rightVal = tile.r; return;
         }
         if (side === 'left') {
             let t = tile;
             if (t.r !== this.leftVal) t = t.flipped();
-            this.tiles.unshift({ l: t.l, r: t.r, ori: t.isDouble ? 'H' : 'V' });
+            this.tiles.unshift({ l: t.l, r: t.r, ori: t.isDouble ? 'V' : 'H' });
             this.leftVal = t.l;
         } else {
             let t = tile;
             if (t.l !== this.rightVal) t = t.flipped();
-            this.tiles.push({ l: t.l, r: t.r, ori: t.isDouble ? 'H' : 'V' });
+            this.tiles.push({ l: t.l, r: t.r, ori: t.isDouble ? 'V' : 'H' });
             this.rightVal = t.r;
         }
     }
@@ -486,7 +489,7 @@ function joinRoom(socket, room, name) {
     io.to(room.id).emit('updateLobby', room.players);
 }
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`Domino server → http://0.0.0.0:${PORT}`);
 });

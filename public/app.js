@@ -1,7 +1,7 @@
 'use strict';
 // ─── STATE ────────────────────────────────────────────────
 const socket = io({
-    transports: ['websocket', 'polling'],
+    transports: ['websocket'], // Paksa pakai WebSocket (lebih cepat dari polling)
     reconnectionAttempts: 10,
 });
 let myIndex = -1;
@@ -39,7 +39,11 @@ function showScreen(id) {
 function showOverlay(id) { const e = $(id); if (e) e.classList.remove('hidden'); }
 function hideOverlay(id) { const e = $(id); if (e) e.classList.add('hidden'); }
 
-// ─── LOBBY WIRING ─────────────────────────────────────────
+socket.on('connect', () => {
+    console.log('Connected to server');
+    hideEl('loading-screen'); // Sembunyikan loading setelah tersambung
+});
+
 $('btn-quickplay').onclick = () => {
     myName = $('my-name-input').value.trim() || 'Player';
     setText('btn-quickplay', '⏳ Mencari lawan...');
@@ -255,8 +259,13 @@ function renderBoard(gs) {
     rows.forEach((rowTiles, rowIndex) => {
         const rowEl = document.createElement('div');
         rowEl.className = 'board-row';
-        // Baris genap (indeks 1, 3, ...) arahnya terbalik
-        if (rowIndex % 2 !== 0) rowEl.classList.add('reverse');
+        const isReverse = (rowIndex % 2 !== 0);
+        
+        // ALIGNMENT: 
+        // Baris ganjil (Normal) rata kiri, baris genap (Reverse) rata kanan
+        // Ini agar ujung baris 1 bertemu dengan awal baris 2 di sisi kanan.
+        rowEl.style.justifyContent = isReverse ? 'flex-end' : 'flex-start';
+        if (isReverse) rowEl.classList.add('reverse');
 
         rowTiles.forEach((t, i) => {
             const absIdx = rowIndex * maxPerRow + i;
@@ -267,7 +276,11 @@ function renderBoard(gs) {
             if (absIdx === 0) extra = 'tile-head';
             if (absIdx === tiles.length - 1 && tiles.length > 1) extra = 'tile-tail';
 
-            const el = makeTile(t.l, t.r, ori, extra);
+            // Logika swap L/R untuk baris reverse agar angka berhadapan
+            const finalL = isReverse ? t.r : t.l;
+            const finalR = isReverse ? t.l : t.r;
+
+            const el = makeTile(finalL, finalR, ori, extra);
             rowEl.appendChild(el);
         });
         board.appendChild(rowEl);

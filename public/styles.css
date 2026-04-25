@@ -1,3 +1,6 @@
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+
 /* ── ROOT ─────────────────────────────────────────────── */
 :root {
     --bg:       #0f1015;
@@ -194,11 +197,11 @@ html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family
     scrollbar-width:thin; scrollbar-color:rgba(241,196,15,.15) transparent;
 }
 #board { 
-    display: flex; flex-direction: column; align-items: center; 
-    gap: 8px; min-width: 100%;
+    display: flex; flex-direction: column; align-items: stretch; 
+    gap: 8px; min-width: 100%; padding: 40px 20px;
 }
 .board-row {
-    display: flex; gap: 4px; align-items: center; justify-content: center;
+    display: flex; gap: 4px; align-items: center; width: 100%;
 }
 .board-row.reverse {
     flex-direction: row-reverse;
