@@ -241,26 +241,43 @@ function renderBoard(gs) {
     board.innerHTML = '';
     const tiles = gs.board.tiles;
     if (!tiles.length) {
-        board.style.minWidth = '180px';
-        board.style.minHeight = '60px';
-        board.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.18);font-size:.72rem;letter-spacing:1px;width:100%;height:100%;">Letakkan kartu pertama...</div>';
+        board.innerHTML = '<div style="color:rgba(255,255,255,.18);font-size:.72rem;">Letakkan kartu pertama...</div>';
         return;
     }
 
-    board.style.minWidth = 'auto';
-    board.style.minHeight = 'auto';
+    // ZIGZAG CONFIG
+    const maxPerRow = 5; // Jumlah kartu per baris di HP
+    const rows = [];
+    for (let i = 0; i < tiles.length; i += maxPerRow) {
+        rows.push(tiles.slice(i, i + maxPerRow));
+    }
 
-    tiles.forEach(t => {
-        const isDouble = (t.l === t.r);
-        const ori = isDouble ? 'V' : 'H';
-        const el = makeTile(t.l, t.r, ori, '');
-        board.appendChild(el);
+    rows.forEach((rowTiles, rowIndex) => {
+        const rowEl = document.createElement('div');
+        rowEl.className = 'board-row';
+        // Baris genap (indeks 1, 3, ...) arahnya terbalik
+        if (rowIndex % 2 !== 0) rowEl.classList.add('reverse');
+
+        rowTiles.forEach((t, i) => {
+            const absIdx = rowIndex * maxPerRow + i;
+            const isDouble = (t.l === t.r);
+            const ori = isDouble ? 'V' : 'H';
+            
+            let extra = '';
+            if (absIdx === 0) extra = 'tile-head';
+            if (absIdx === tiles.length - 1 && tiles.length > 1) extra = 'tile-tail';
+
+            const el = makeTile(t.l, t.r, ori, extra);
+            rowEl.appendChild(el);
+        });
+        board.appendChild(rowEl);
     });
 
+    // Auto scroll ke bawah (kartu terbaru)
     const scroll = $('board-scroll');
     if (scroll) {
         requestAnimationFrame(() => {
-            scroll.scrollLeft = (scroll.scrollWidth - scroll.clientWidth) / 2;
+            scroll.scrollTop = scroll.scrollHeight;
         });
     }
 }

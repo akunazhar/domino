@@ -174,6 +174,18 @@ function executeMove(room, pIdx, tileData, side) {
     );
     if (!tileObj) return false;
 
+    // RULE: In Round 1, the very first move MUST be the Double 6 (6-6)
+    if (room.round === 1 && room.board.isEmpty()) {
+        if (!(tileObj.l === 6 && tileObj.r === 6)) {
+            // If they tried to play something else, we could reject it
+            // but for better UX, let's just find the 6-6 in their hand and play that instead
+            // OR return false so the client knows it's invalid.
+            // Let's return false and the client can show an error or we can just force it here.
+            // Actually, returning false is safer.
+            return false;
+        }
+    }
+
     room.hands[pIdx] = hand.filter(t => t !== tileObj);
     room.board.place(tileObj, side === 'start' ? 'right' : side);
     room.passCount = 0; // Reset pass counter on successful play
@@ -183,8 +195,6 @@ function executeMove(room, pIdx, tileData, side) {
         endRound(room, pIdx, false); return true;
     }
     nextTurn(room);
-    // No aggressive pitus check here — let the game continue until
-    // all 4 players consecutively pass (passCount >= 4)
     return true;
 }
 
@@ -260,8 +270,10 @@ function autoPlay(room) {
     for (const tile of hand) {
         const sides = board.getPlayableSides(tile, board.isEmpty());
         if (sides.length) {
-            executeMove(room, pIdx, tile, sides[0]);
-            played = true; break;
+            if (executeMove(room, pIdx, tile, sides[0])) {
+                played = true; 
+                break;
+            }
         }
     }
     if (!played) {
@@ -474,8 +486,9 @@ function joinRoom(socket, room, name) {
     io.to(room.id).emit('updateLobby', room.players);
 }
 
-if (process.env.NODE_ENV !== 'production') {
-    server.listen(3000, () => console.log('Domino server → http://localhost:3000'));
-}
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Domino server → http://0.0.0.0:${PORT}`);
+});
 
 module.exports = server;
