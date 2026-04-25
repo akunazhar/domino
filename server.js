@@ -44,28 +44,27 @@ class Board {
         }
 
         // --- CEK POTONG TENGAH (PRIORITAS) ---
-        // Cari kecocokan di seluruh kartu yang ada di papan
+        // Potong Tengah diutamakan jika side === 'middle' ATAU match ditemukan di tengah (bukan ujung)
         let midIndex = -1;
         let matchVal = -1;
-        for (let i = 0; i < this.tiles.length; i++) {
+
+        // Jika side === 'middle', cari di mana pun
+        // Jika side normal, cari hanya di internal (untuk menghindari salah potong saat sambung biasa)
+        const startIdx = (side === 'middle') ? this.tiles.length - 1 : this.tiles.length - 2;
+        const endIdx   = (side === 'middle') ? 0 : 1;
+
+        for (let i = startIdx; i >= endIdx; i--) {
             const t = this.tiles[i];
             if (tile.l === t.l || tile.l === t.r) { midIndex = i; matchVal = tile.l; break; }
             if (tile.r === t.l || tile.r === t.r) { midIndex = i; matchVal = tile.r; break; }
         }
 
-        // Jika ditemukan kecocokan (bisa di tengah atau ujung)
-        // Kita terapkan logika potong jika bukan sekadar sambung ujung normal 
-        // ATAU jika memang user ingin memicu potong (misal matchVal sama dengan angka di tengah)
         if (midIndex !== -1) {
-            // Potong rantai: ambil mulai dari midIndex ke akhir
-            // Ini akan membuang semua kartu sebelum midIndex (memendekkan rantai)
             this.tiles = this.tiles.slice(midIndex);
 
             let newT = tile;
-            // Orientasi kartu baru agar sisi yang cocok terhubung ke dalam
             if (newT.r !== matchVal) newT = newT.flipped();
 
-            // Orientasi kartu lama agar sisi yang cocok menghadap ke arah kartu baru
             if (this.tiles[0].l !== matchVal) {
                 const old = this.tiles[0];
                 this.tiles[0] = { l: old.r, r: old.l, ori: old.ori };
@@ -73,12 +72,9 @@ class Board {
 
             this.tiles.unshift({ l: newT.l, r: newT.r, ori: newT.isDouble ? 'V' : 'H' });
 
-            // ATURAN KHUSUS: Ujung baru harus mengikuti angka yang cocok
-            // Ini yang membuat kartu "memendek" secara logika (next player main di angka yang sama)
-            this.leftVal = matchVal; 
-            this.rightVal = this.tiles[this.tiles.length - 1].r;
+            // UPDATE ENDS
+            this.updateEnds();
             
-            // Cek lagi jika ada auto-cut berantai
             this.checkAutoCut();
             return;
         }
@@ -96,38 +92,52 @@ class Board {
             this.rightVal = t.r;
         }
 
-        // SELALU CEK AUTO-CUT setelah jalan normal
         this.checkAutoCut();
     }
 
     checkAutoCut() {
         if (this.tiles.length < 3) return;
 
-        // Jika leftVal ada di kartu mana pun selain kartu pertama, potong kepalanya
-        for (let i = 1; i < this.tiles.length; i++) {
+        let changed = false;
+
+        // 1. Jika leftVal ada di kartu mana pun di tengah, buang bagian depannya
+        // Cari dari belakang agar membuang sebanyak mungkin
+        for (let i = this.tiles.length - 1; i >= 1; i--) {
             if (this.leftVal === this.tiles[i].l || this.leftVal === this.tiles[i].r) {
                 this.tiles = this.tiles.slice(i);
-                // Pastikan orientasi kartu baru di depan sesuai
                 if (this.tiles[0].l !== this.leftVal) {
                     const old = this.tiles[0];
                     this.tiles[0] = { l: old.r, r: old.l, ori: old.ori };
                 }
+                changed = true;
                 break;
             }
         }
 
-        // Jika rightVal ada di kartu mana pun selain kartu terakhir, potong ekornya
-        // (Biasanya "Potong" lebih ke arah membuang head, tapi kita dukung dua arah)
-        for (let i = this.tiles.length - 2; i >= 0; i--) {
+        // 2. Jika rightVal ada di kartu mana pun di tengah, buang bagian belakangnya
+        // Cari dari depan agar membuang sebanyak mungkin
+        for (let i = 0; i <= this.tiles.length - 2; i++) {
             if (this.rightVal === this.tiles[i].l || this.rightVal === this.tiles[i].r) {
                 this.tiles = this.tiles.slice(0, i + 1);
-                // Pastikan orientasi kartu baru di belakang sesuai
-                if (this.tiles[this.tiles.length-1].r !== this.rightVal) {
-                    const old = this.tiles[this.tiles.length-1];
-                    this.tiles[this.tiles.length-1] = { l: old.r, r: old.l, ori: old.ori };
+                if (this.tiles[this.tiles.length - 1].r !== this.rightVal) {
+                    const old = this.tiles[this.tiles.length - 1];
+                    this.tiles[this.tiles.length - 1] = { l: old.r, r: old.l, ori: old.ori };
                 }
+                changed = true;
                 break;
             }
+        }
+
+        if (changed) this.updateEnds();
+    }
+
+    updateEnds() {
+        if (this.isEmpty()) {
+            this.leftVal = null;
+            this.rightVal = null;
+        } else {
+            this.leftVal  = this.tiles[0].l;
+            this.rightVal = this.tiles[this.tiles.length - 1].r;
         }
     }
 

@@ -349,6 +349,17 @@ function renderMyHand(gs) {
 function getPlayableSides(tile, board, boardEmpty) {
     if (boardEmpty) return ['start'];
     const s = [];
+
+    // 1. Cek kecocokan di INTERNAL rantai (Potong Tengah)
+    // Lewati index 0 (kiri) dan tiles.length-1 (kanan) karena itu sambung normal
+    const tiles = board.tiles;
+    for (let i = 1; i < tiles.length - 1; i++) {
+        if (tile.l === tiles[i].l || tile.l === tiles[i].r || tile.r === tiles[i].l || tile.r === tiles[i].r) {
+            if (!s.includes('middle')) s.push('middle');
+            break;
+        }
+    }
+
     if (tile.l === board.leftVal || tile.r === board.leftVal) s.push('left');
     if (tile.l === board.rightVal || tile.r === board.rightVal) s.push('right');
     return s;
@@ -382,15 +393,25 @@ function updateTimer(turn, time) {
 function handleTileClick(tile, sides) {
     if (!gameState || gameState.turn !== myIndex) return;
 
-    if (sides[0] === 'start' || sides.length === 1) {
+    // Jika hanya satu pilihan (start, left, right, ATAU middle), langsung mainkan
+    if (sides.length === 1) {
         const side = sides[0] === 'start' ? 'right' : sides[0];
         socket.emit('playTile', { roomId: myRoomId, tile, side });
-    } else {
-        // Both ends match → show side selector
+    } 
+    // Jika ada 'middle' dan pilihan lain (left/right), prioritaskan pilihan side select 
+    // tapi untuk kenyamanan, jika ada middle kita tunjukkan overlay pilihan.
+    else {
         pendingTile = tile;
         const board = gameState.board;
+        
+        // Atur label untuk pilihan
         setText('left-val', board.leftVal);
         setText('right-val', board.rightVal);
+        
+        // Tampilkan tombol middle jika tersedia
+        const midBtn = $('btn-side-middle');
+        if (midBtn) midBtn.classList.toggle('hidden', !sides.includes('middle'));
+
         const preview = $('pending-tile-preview');
         if (preview) {
             preview.innerHTML = '';
@@ -403,6 +424,12 @@ function handleTileClick(tile, sides) {
 $('btn-side-left').onclick = () => {
     if (!pendingTile) return;
     socket.emit('playTile', { roomId: myRoomId, tile: pendingTile, side: 'left' });
+    pendingTile = null;
+    hideOverlay('side-overlay');
+};
+$('btn-side-middle').onclick = () => {
+    if (!pendingTile) return;
+    socket.emit('playTile', { roomId: myRoomId, tile: pendingTile, side: 'middle' });
     pendingTile = null;
     hideOverlay('side-overlay');
 };
