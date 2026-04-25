@@ -124,15 +124,15 @@ socket.on('connect', () => setConnStatus(true));
 socket.on('disconnect', () => setConnStatus(false));
 socket.on('connect_error', () => setConnStatus(false));
 
-socket.on('roundStarted', state => {
-    gameState = state;
-    pendingTile = null;
-    hideOverlay('round-overlay');
-    hideOverlay('gameover-overlay');
-    hideOverlay('side-overlay');
-    showScreen('game-screen');
-    renderGame(state);
-    showToast(`🎲 Ronde ${state.round} dimulai!`);
+socket.on('roundEnd', data => {
+    gameState = null;
+    hideEl('timer-wrap');
+    showOverlay('round-over-overlay');
+    
+    setInner('round-title', data.pitus ? '🁣 MATI PITUS! 🁣' : 'RONDE SELESAI');
+    setInner('round-subtitle', data.pitus ? 'Semua kartu angka tersebut sudah keluar!' : 'Ada pemain yang kartunya habis!');
+    
+    renderScoreboard('round-scores-list', data.roundScores, data.scores, data.players, data.winnerId);
 });
 
 socket.on('gameStateUpdate', state => {
@@ -431,8 +431,8 @@ function renderRoundEnd(data) {
     if (roundIcon) roundIcon.textContent = pitus ? '⚠️' : '🏆';
 
     const winnerName = players.find(p => p.index === winnerId)?.name || `AI ${(winnerId || 0) + 1}`;
-    setText('round-title', pitus ? 'PITUS! Papan Buntu!' : `${winnerName} Menang Ronde!`);
-    setText('round-sub', pitus ? `${winnerName} menang karena poin sisa terkecil!` : 'Kartu habis!');
+    setText('round-title', pitus ? '🁣 MATI PITUS! 🁣' : `${winnerName} Menang Ronde!`);
+    setText('round-sub', pitus ? `${winnerName} menang dengan poin sisa terkecil!` : 'Kartu habis!');
 
     const allSlots = [];
     for (let i = 0; i < 4; i++)

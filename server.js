@@ -197,6 +197,25 @@ function executeMove(room, pIdx, tileData, side) {
         // Winner gets 0 additional points — end round now
         endRound(room, pIdx, false); return true;
     }
+
+    // Check for "Pitus/Mati" (Kalimantan style)
+    const lv = room.board.leftVal;
+    const rv = room.board.rightVal;
+    if (lv === rv && lv !== null) {
+        // Hitung berapa banyak kartu dengan angka ini di papan
+        let count = 0;
+        room.board.tiles.forEach(t => {
+            if (t.l === lv) count++;
+            if (t.r === lv) count++;
+        });
+        // Jika angka yang sama ada di kedua ujung, dan semua 7 kartu sudah keluar
+        if (count >= 7) {
+            console.log(`PITUS DETECTED: ${lv}-${rv}`);
+            endRound(room, null, true);
+            return true;
+        }
+    }
+
     nextTurn(room);
     return true;
 }
