@@ -263,7 +263,6 @@ function renderBoard(gs) {
         
         // ALIGNMENT: 
         // Baris ganjil (Normal) rata kiri, baris genap (Reverse) rata kanan
-        // Ini agar ujung baris 1 bertemu dengan awal baris 2 di sisi kanan.
         rowEl.style.justifyContent = isReverse ? 'flex-end' : 'flex-start';
         if (isReverse) rowEl.classList.add('reverse');
 
@@ -276,9 +275,20 @@ function renderBoard(gs) {
             if (absIdx === 0) extra = 'tile-head';
             if (absIdx === tiles.length - 1 && tiles.length > 1) extra = 'tile-tail';
 
-            // Logika swap L/R untuk baris reverse agar angka berhadapan
-            const finalL = isReverse ? t.r : t.l;
-            const finalR = isReverse ? t.l : t.r;
+            // LOGIKA BERHADAPAN (Symmetry Fix):
+            // Di baris normal (L->R): entry di kiri (t.l), exit di kanan (t.r)
+            // Di baris reverse (R->L): entry di kanan (t.l), exit di kiri (t.r)
+            // Karena 'row-reverse' memutar urutan elemen, kita harus pastikan 
+            // t.l (sisi sambungan) selalu menghadap ke arah kartu sebelumnya.
+            let finalL = t.l;
+            let finalR = t.r;
+
+            if (isReverse) {
+                // Di baris terbalik, kita tukar L dan R agar t.l tetap menjadi 
+                // titik masuk yang menempel ke kartu sebelumnya di sebelah kanan.
+                finalL = t.r;
+                finalR = t.l;
+            }
 
             const el = makeTile(finalL, finalR, ori, extra);
             rowEl.appendChild(el);
