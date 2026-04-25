@@ -15,7 +15,7 @@
     --shadow:   0 8px 30px rgba(0,0,0,0.3);
 }
 *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
-html,body { width:100%; height:100%; overflow:hidden; font-family:var(--font); background:var(--bg); color:var(--text); }
+html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family:var(--font); background:var(--bg); color:var(--text); }
 
 /* ── SCREENS ──────────────────────────────────────────── */
 .screen { position:fixed; inset:0; display:none; }
@@ -126,7 +126,7 @@ html,body { width:100%; height:100%; overflow:hidden; font-family:var(--font); b
 #turn-info span { color:var(--gold); font-weight:700; }
 
 /* ── GAME LAYOUT ──────────────────────────────────────── */
-#game-screen { flex-direction:column; height:100vh; padding-top:46px; }
+#game-screen { flex-direction:column; height:100%; height:100dvh; padding-top:46px; }
 
 /* Opponent seats */
 .opp-seat {
@@ -313,7 +313,8 @@ html,body { width:100%; height:100%; overflow:hidden; font-family:var(--font); b
 #my-area {
     background:linear-gradient(to top,#090918,var(--surf));
     border-top:1.5px solid var(--border);
-    padding:6px 10px 8px; display:flex; flex-direction:column; gap:5px;
+    padding:6px 10px calc(8px + env(safe-area-inset-bottom)); 
+    display:flex; flex-direction:column; gap:5px;
 }
 #my-header { display:flex; align-items:center; gap:8px; }
 #my-profile { display:flex; align-items:center; gap:7px; flex-shrink:0; }
