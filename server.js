@@ -302,7 +302,7 @@ function executeMove(room, pIdx, tileData, side) {
     // Tidak perlu semua kartu keluar, cukup kedua ujung sama
     const lv = room.board.leftVal;
     const rv = room.board.rightVal;
-    if (lv !== null && rv !== null && lv === rv) {
+    if (lv !== null && rv !== null && lv === rv && room.board.tiles.length > 1) {
         console.log(`KEPOTONG! Ujung kiri = ${lv}, ujung kanan = ${rv}`);
         endRound(room, null, true);
         return true;
