@@ -310,6 +310,15 @@ function renderMyHand(gs) {
 function getPlayableSides(tile, board, boardEmpty) {
     if (boardEmpty) return ['start'];
     const s = [];
+
+    // 1. Cek kecocokan di tengah
+    const tiles = board.tiles;
+    for (let i = 1; i < tiles.length - 1; i++) {
+        if (tile.l === tiles[i].l || tile.l === tiles[i].r || tile.r === tiles[i].l || tile.r === tiles[i].r) {
+            if (!s.includes('middle')) s.push('middle');
+        }
+    }
+
     if (tile.l === board.leftVal || tile.r === board.leftVal)  s.push('left');
     if (tile.l === board.rightVal || tile.r === board.rightVal) s.push('right');
     return s;
@@ -343,11 +352,14 @@ function updateTimer(turn, time) {
 function handleTileClick(tile, sides) {
     if (!gameState || gameState.turn !== myIndex) return;
 
-    if (sides[0] === 'start' || sides.length === 1) {
+    if (sides[0] === 'start' || (sides.length === 1 && sides[0] !== 'middle')) {
         const side = sides[0] === 'start' ? 'right' : sides[0];
         socket.emit('playTile', { roomId: myRoomId, tile, side });
+    } else if (sides.includes('middle')) {
+        // Jika ada kecocokan di tengah, prioritaskan potong tengah
+        socket.emit('playTile', { roomId: myRoomId, tile, side: 'middle' });
     } else {
-        // Both ends match → show side selector
+        // Hanya jika ada pilihan Left vs Right (tanpa middle match)
         pendingTile = tile;
         const board = gameState.board;
         setText('left-val',  board.leftVal);

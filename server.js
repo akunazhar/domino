@@ -42,6 +42,40 @@ class Board {
             this.tiles.push({ l: tile.l, r: tile.r, ori: tile.isDouble ? 'V' : 'H' });
             this.leftVal = tile.l; this.rightVal = tile.r; return;
         }
+
+        // --- CEK POTONG TENGAH (PRIORITAS) ---
+        let midIndex = -1;
+        let matchVal = -1;
+        // Cari kecocokan di posisi tengah (bukan ujung)
+        for (let i = 1; i < this.tiles.length - 1; i++) {
+            const t = this.tiles[i];
+            if (tile.l === t.l || tile.l === t.r) { midIndex = i; matchVal = tile.l; break; }
+            if (tile.r === t.l || tile.r === t.r) { midIndex = i; matchVal = tile.r; break; }
+        }
+
+        if (midIndex !== -1) {
+            // Potong rantai: ambil mulai dari midIndex ke akhir
+            this.tiles = this.tiles.slice(midIndex);
+
+            let newT = tile;
+            // Orientasi kartu baru agar sisi yang cocok terhubung ke dalam
+            if (newT.r !== matchVal) newT = newT.flipped();
+
+            // Orientasi kartu lama (target) agar sisi yang cocok menghadap ke luar (kiri)
+            if (this.tiles[0].l !== matchVal) {
+                const old = this.tiles[0];
+                this.tiles[0] = { l: old.r, r: old.l, ori: old.ori };
+            }
+
+            this.tiles.unshift({ l: newT.l, r: newT.r, ori: newT.isDouble ? 'V' : 'H' });
+
+            // Ujung baru mengikuti angka hasil sambungan terakhir (angka yang cocok)
+            this.leftVal = matchVal;
+            this.rightVal = this.tiles[this.tiles.length - 1].r;
+            return;
+        }
+
+        // --- ATURAN NORMAL ---
         if (side === 'left') {
             let t = tile;
             if (t.r !== this.leftVal) t = t.flipped();
@@ -58,6 +92,14 @@ class Board {
     getPlayableSides(tile, boardEmpty) {
         if (boardEmpty) return ['start'];
         const sides = [];
+        
+        // 1. Cek kecocokan di tengah (indeks 1 sampai length-2)
+        for (let i = 1; i < this.tiles.length - 1; i++) {
+            if (tile.matches(this.tiles[i].l) || tile.matches(this.tiles[i].r)) {
+                if (!sides.includes('middle')) sides.push('middle');
+            }
+        }
+
         if (tile.matches(this.leftVal))  sides.push('left');
         if (tile.matches(this.rightVal)) sides.push('right');
         return sides;
@@ -66,7 +108,10 @@ class Board {
     isBlocked(hands) {
         if (this.isEmpty()) return false;
         return hands.every(hand =>
-            hand.every(t => !t.matches(this.leftVal) && !t.matches(this.rightVal))
+            hand.every(t => {
+                const sides = this.getPlayableSides(t, false);
+                return sides.length === 0;
+            })
         );
     }
 
