@@ -311,11 +311,12 @@ function getPlayableSides(tile, board, boardEmpty) {
     if (boardEmpty) return ['start'];
     const s = [];
 
-    // 1. Cek kecocokan di tengah
+    // 1. Cek kecocokan di seluruh rantai (Potong Tengah)
     const tiles = board.tiles;
-    for (let i = 1; i < tiles.length - 1; i++) {
+    for (let i = 0; i < tiles.length; i++) {
         if (tile.l === tiles[i].l || tile.l === tiles[i].r || tile.r === tiles[i].l || tile.r === tiles[i].r) {
             if (!s.includes('middle')) s.push('middle');
+            break;
         }
     }
 
