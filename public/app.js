@@ -430,8 +430,10 @@ function renderRoundEnd(data) {
     if (roundIcon) roundIcon.textContent = pitus ? '⚠️' : '🏆';
 
     const winnerName = players.find(p => p.index === winnerId)?.name || `AI ${(winnerId || 0) + 1}`;
-    setText('round-title', pitus ? '🁣 MATI PITUS! 🁣' : `${winnerName} Menang Ronde!`);
-    setText('round-sub', pitus ? `${winnerName} menang dengan poin sisa terkecil!` : 'Kartu habis!');
+    setText('round-title', pitus ? '✂️ KEPOTONG / PITUS!' : `${winnerName} Menang Ronde!`);
+    setText('round-sub', pitus
+        ? `Ujung kiri & kanan bernilai sama → rantai terpotong! ${winnerName} menang (poin terkecil)!`
+        : 'Kartu habis!');
 
     const allSlots = [];
     for (let i = 0; i < 4; i++)

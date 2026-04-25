@@ -198,23 +198,17 @@ function executeMove(room, pIdx, tileData, side) {
         endRound(room, pIdx, false); return true;
     }
 
-    // Check for "Pitus/Mati" (Kalimantan style)
+    // ── Cek KEPOTONG / PITUS (Aturan Kalimantan) ──────────────────
+    // Jika ujung kiri dan ujung kanan papan bernilai sama → LANGSUNG KEPOTONG
+    // Tidak perlu semua kartu keluar, cukup kedua ujung sama
     const lv = room.board.leftVal;
     const rv = room.board.rightVal;
-    if (lv === rv && lv !== null) {
-        // Hitung berapa banyak kartu dengan angka ini di papan
-        let count = 0;
-        room.board.tiles.forEach(t => {
-            if (t.l === lv) count++;
-            if (t.r === lv) count++;
-        });
-        // Jika angka yang sama ada di kedua ujung, dan semua 7 kartu sudah keluar
-        if (count >= 7) {
-            console.log(`PITUS DETECTED: ${lv}-${rv}`);
-            endRound(room, null, true);
-            return true;
-        }
+    if (lv !== null && rv !== null && lv === rv) {
+        console.log(`KEPOTONG! Ujung kiri = ${lv}, ujung kanan = ${rv}`);
+        endRound(room, null, true);
+        return true;
     }
+
 
     nextTurn(room);
     return true;
