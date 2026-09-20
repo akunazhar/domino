@@ -332,13 +332,13 @@ function renderMyHand(gs) {
             ghostClass: 'tile-ghost',
             chosenClass: 'tile-chosen',
             dragClass: 'tile-drag',
-            forceFallback: true,       // JS fallback — lebih reliable cross-browser
-            fallbackTolerance: 5,      // px minimal sebelum dianggap drag
-            delay: 100,
-            delayOnTouchOnly: false,   // delay di semua device agar tidak konflik click
+            // Native HTML5 drag API — klik tetap bekerja normal
+            // Geser mouse/touch ≥5px = drag reorder
+            delay: 200,
+            delayOnTouchOnly: true,    // delay HANYA di touch, desktop native drag
             onStart: () => { isDragging = true; },
             onEnd: function () {
-                setTimeout(() => { isDragging = false; }, 100);
+                setTimeout(() => { isDragging = false; }, 50);
                 const newOrder = [];
                 handEl.querySelectorAll('.tile').forEach(el => {
                     newOrder.push(el.dataset.key);
