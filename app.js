@@ -761,101 +761,182 @@ socket.on('rtc-candidate', async data => {
     if (pc) await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
 });
 
-// ─── BACKGROUND MUSIC (Web Audio API) ────────────────────
+// ─── BACKGROUND MUSIC (Web Audio API — Energetic Domino Beat) ────────────
 let audioCtx = null;
 let musicPlaying = false;
 let musicNodes = [];
-let musicScheduled = [];
 let musicTimeout = null;
 
-// Nada pentatonik tradisional (sunda/kalimantan nuansa)
-const PENTATONIC = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 784.00, 880.00];
-const BASS_NOTES = [65.41, 73.42, 82.41, 98.00, 110.00];
+const BPM = 128;
+const BEAT = 60 / BPM;
+const BAR  = BEAT * 4;
+
+// Tangga nada minor pentatonik — lebih gelap & energik
+const NOTES = {
+    C3: 130.81, D3: 146.83, Eb3: 155.56, F3: 174.61, G3: 196.00, Bb3: 233.08,
+    C4: 261.63, D4: 293.66, Eb4: 311.13, F4: 349.23, G4: 392.00, Bb4: 466.16,
+    C5: 523.25, D5: 587.33, Eb5: 622.25, F5: 698.46, G5: 783.99,
+};
+const BASS = [NOTES.C3, NOTES.G3, NOTES.Bb3, NOTES.F3, NOTES.Eb3, NOTES.D3];
 
 function ensureAudioCtx() {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') audioCtx.resume();
 }
 
-function playNote(freq, startTime, duration, gainVal, type = 'sine', dest = null) {
+// --- Synth helpers ---
+function playOsc(freq, t, dur, vol, type, dest) {
     if (!audioCtx || !musicPlaying) return;
     const osc = audioCtx.createOscillator();
     const g   = audioCtx.createGain();
-    osc.type = type;
-    osc.frequency.value = freq;
-    g.gain.setValueAtTime(0, startTime);
-    g.gain.linearRampToValueAtTime(gainVal, startTime + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-    osc.connect(g);
-    g.connect(dest || audioCtx.destination);
-    osc.start(startTime);
-    osc.stop(startTime + duration + 0.05);
+    osc.type = type; osc.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g); g.connect(dest);
+    osc.start(t); osc.stop(t + dur + 0.05);
     musicNodes.push(osc);
+}
+
+function playKick(t, dest) {
+    if (!audioCtx || !musicPlaying) return;
+    const osc = audioCtx.createOscillator();
+    const g   = audioCtx.createGain();
+    osc.frequency.setValueAtTime(160, t);
+    osc.frequency.exponentialRampToValueAtTime(30, t + 0.12);
+    g.gain.setValueAtTime(1.0, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    osc.connect(g); g.connect(dest);
+    osc.start(t); osc.stop(t + 0.3);
+    musicNodes.push(osc);
+}
+
+function playSnare(t, dest) {
+    if (!audioCtx || !musicPlaying) return;
+    // Noise
+    const buf = audioCtx.createBuffer(1, Math.ceil(audioCtx.sampleRate * 0.18), audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    const hpf = audioCtx.createBiquadFilter();
+    hpf.type = 'highpass'; hpf.frequency.value = 1500;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.55, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+    src.connect(hpf); hpf.connect(g); g.connect(dest);
+    src.start(t); musicNodes.push(src);
+    // Body tone
+    const osc = audioCtx.createOscillator();
+    const og  = audioCtx.createGain();
+    osc.frequency.value = 200;
+    og.gain.setValueAtTime(0.4, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+    osc.connect(og); og.connect(dest);
+    osc.start(t); osc.stop(t + 0.1); musicNodes.push(osc);
+}
+
+function playHat(t, vol, dest) {
+    if (!audioCtx || !musicPlaying) return;
+    const buf = audioCtx.createBuffer(1, Math.ceil(audioCtx.sampleRate * 0.05), audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    const hpf = audioCtx.createBiquadFilter();
+    hpf.type = 'highpass'; hpf.frequency.value = 8000;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    src.connect(hpf); hpf.connect(g); g.connect(dest);
+    src.start(t); musicNodes.push(src);
 }
 
 function scheduleBar(barStart) {
     if (!musicPlaying) return;
-    const bpm = 80;
-    const beat = 60 / bpm;
-    const bar = beat * 4;
 
-    // Reverb-like: master gain
-    const masterGain = audioCtx.createGain();
-    masterGain.gain.value = 0.45;
-    masterGain.connect(audioCtx.destination);
+    const master = audioCtx.createGain();
+    master.gain.value = 0.72;
+    master.connect(audioCtx.destination);
 
-    // === BASS (gentle pluck) ===
-    const bassPattern = [0, 0, 2, 0, 1, 0, 2, 0];
-    bassPattern.forEach((noteIdx, step) => {
-        const t = barStart + step * (beat / 2);
-        playNote(BASS_NOTES[noteIdx], t, beat * 0.6, 0.35, 'triangle', masterGain);
+    const step = BEAT / 4; // 16th note
+    const barNum = Math.floor(barStart / BAR);
+
+    // === KICK: beats 1 & 3 + syncopated hits ===
+    const kickPattern = [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0];
+    const extraKick   = [0,0,0,1, 0,0,1,0, 0,0,0,1, 0,0,1,0]; // syncopation
+    kickPattern.forEach((on, i) => {
+        if (on) playKick(barStart + i * step, master);
+    });
+    extraKick.forEach((on, i) => {
+        if (on) playKick(barStart + i * step, master);
     });
 
-    // === MELODY (pentatonik, slow) ===
-    const melodies = [
-        [4, null, 5, null, 3, null, 5, 4],
-        [5, null, 6, null, 4, null, 6, 5],
-        [3, 4, 5, null, 4, 3, null, 4],
-        [5, 6, 7, null, 5, 4, null, 5],
-    ];
-    const melodyIdx = (Math.floor((barStart / (beat * 4)) % melodies.length));
-    const melody = melodies[melodyIdx];
-    melody.forEach((noteIdx, step) => {
-        if (noteIdx === null) return;
-        const t = barStart + step * (beat / 2);
-        playNote(PENTATONIC[noteIdx], t, beat * 0.8, 0.18, 'sine', masterGain);
-    });
+    // === SNARE: beats 2 & 4 ===
+    [4, 12].forEach(i => playSnare(barStart + i * step, master));
 
-    // === HI-HAT feel (softer, quiet) ===
-    for (let step = 0; step < 8; step++) {
-        if (step % 2 === 0) {
-            const t = barStart + step * (beat / 2);
-            const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.04, audioCtx.sampleRate);
-            const data = buf.getChannelData(0);
-            for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
-            const src = audioCtx.createBufferSource();
-            src.buffer = buf;
-            const hg = audioCtx.createGain();
-            hg.gain.setValueAtTime(0.04, t);
-            hg.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
-            src.connect(hg);
-            hg.connect(masterGain);
-            src.start(t);
-            musicNodes.push(src);
-        }
+    // === HI-HAT: every 8th, open on offbeats ===
+    for (let i = 0; i < 16; i++) {
+        const vol = i % 4 === 2 ? 0.38 : 0.18; // accent offbeat
+        playHat(barStart + i * step, vol, master);
     }
 
+    // === BASS (funky pattern, changes every 2 bars) ===
+    const bassVariants = [
+        [0,null,0,null, 2,null,1,null, 0,null,0,2,    1,null,null,0],
+        [0,null,2,0,    null,1,null,0, 2,null,null,1,  0,null,2,null],
+    ];
+    const bassSeq = bassVariants[barNum % 2];
+    bassSeq.forEach((idx, i) => {
+        if (idx === null) return;
+        playOsc(BASS[idx], barStart + i * step, step * 1.6, 0.5, 'sawtooth', master);
+    });
+
+    // === CHORD STAB (hit on upbeats) ===
+    const chordHits = [2, 6, 10, 14]; // 8th offbeats
+    const chordFreqs = [
+        [NOTES.Eb4, NOTES.G4, NOTES.Bb4],
+        [NOTES.F4,  NOTES.Bb4, NOTES.D4],
+        [NOTES.G4,  NOTES.Bb4, NOTES.D5],
+        [NOTES.Eb4, NOTES.G4,  NOTES.C5],
+    ];
+    chordHits.forEach((stepIdx, ci) => {
+        const t = barStart + stepIdx * step;
+        chordFreqs[ci % 4].forEach(freq => {
+            playOsc(freq, t, step * 0.9, 0.07, 'square', master);
+        });
+    });
+
+    // === MELODY (energetic, bouncing) ===
+    const melSeqs = [
+        [NOTES.G4, null, NOTES.Bb4, NOTES.C5, null, NOTES.Bb4, NOTES.G4, null,
+         NOTES.F4, null, NOTES.G4,  null,      NOTES.Eb4, null, NOTES.F4, NOTES.G4],
+        [NOTES.C5, NOTES.Bb4, null, NOTES.G4, NOTES.F4, null, NOTES.G4, NOTES.Bb4,
+         null, NOTES.C5, NOTES.D5, null, NOTES.C5, NOTES.Bb4, null, NOTES.G4],
+        [NOTES.G4, NOTES.F4, NOTES.Eb4, null, NOTES.F4, NOTES.G4, null, NOTES.Bb4,
+         NOTES.C5, null, NOTES.Bb4, NOTES.G4, null, NOTES.F4, NOTES.Eb4, null],
+        [NOTES.Bb4, null, NOTES.C5, NOTES.D5, null, NOTES.C5, null, NOTES.Bb4,
+         NOTES.G4, NOTES.F4, null, NOTES.G4, NOTES.Bb4, null, NOTES.C5, null],
+    ];
+    const mel = melSeqs[barNum % 4];
+    mel.forEach((freq, i) => {
+        if (!freq) return;
+        const t = barStart + i * step;
+        playOsc(freq, t, step * 1.1, 0.14, 'sine', master);
+        // Add a detuned layer for richness
+        playOsc(freq * 1.003, t, step * 1.1, 0.06, 'triangle', master);
+    });
+
     // Schedule next bar
-    const nextBar = barStart + bar;
-    const delay = (nextBar - audioCtx.currentTime) * 1000 - 100;
+    const nextBar = barStart + BAR;
+    const delay = (nextBar - audioCtx.currentTime) * 1000 - 120;
     musicTimeout = setTimeout(() => scheduleBar(nextBar), Math.max(delay, 0));
 }
 
 function startMusic() {
     ensureAudioCtx();
     musicPlaying = true;
-    const startAt = audioCtx.currentTime + 0.1;
-    scheduleBar(startAt);
+    scheduleBar(audioCtx.currentTime + 0.1);
 }
 
 function stopMusic() {
@@ -873,20 +954,15 @@ if (btnMusic) {
         if (!musicPlaying) {
             startMusic();
             btnMusic.className = 'music-btn music-on';
-            btnMusic.title = 'Musik: Nyala';
             showToast('🎵 Musik dinyalakan');
         } else {
             stopMusic();
             btnMusic.className = 'music-btn music-off';
-            btnMusic.title = 'Musik: Mati';
             showToast('🔇 Musik dimatikan');
         }
     };
-    // Auto-start music on first game interaction (respects autoplay policy)
     document.addEventListener('click', function startOnce() {
-        if (!musicPlaying && audioCtx === null) {
-            startMusic();
-        }
+        if (!musicPlaying && audioCtx === null) startMusic();
         document.removeEventListener('click', startOnce);
     }, { once: true });
 }
