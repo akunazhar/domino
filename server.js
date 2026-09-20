@@ -438,7 +438,7 @@ function scheduleAI(room) {
         if (r.timerInterval) { clearInterval(r.timerInterval); r.timerInterval = null; }
         autoPlay(r);
         if (r.status === 'playing') startTimer(r.id);
-    }, 2500);
+    }, 4000);
 }
 
 // ─── SOCKET.IO ───────────────────────────────────────────

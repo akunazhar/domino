@@ -194,9 +194,21 @@ html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family
     scrollbar-width:thin; scrollbar-color:rgba(241,196,15,.15) transparent;
 }
 #board { 
-    display: flex; align-items: center; justify-content: flex-start; 
-    gap: 3px; flex-shrink: 0; padding: 20px; min-width: max-content;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+    padding: 20px;
+    min-width: max-content;
     margin: 0 auto;
+}
+.board-empty-msg {
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,.18); font-size: .72rem;
+    letter-spacing: 1px; width: 100%; height: 100%;
+    min-height: 80px;
 }
 #board .tile {
     animation: popInTile 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
@@ -276,6 +288,11 @@ html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family
 .tile.hand.no    { opacity:.35; cursor:default; filter:grayscale(.4); }
 .tile.hand.no:hover { transform:none; }
 .tile.hand.sel   { transform:translateY(-14px) scale(1.08); box-shadow:0 0 20px var(--gold); border-color:var(--gold); }
+
+/* Drag & Drop states */
+.tile-ghost  { opacity: 0.35; background: rgba(245,176,65,.15) !important; }
+.tile-chosen { transform: translateY(-16px) scale(1.1) !important; box-shadow: 0 16px 40px rgba(0,0,0,.5), 0 0 20px rgba(245,176,65,.4) !important; }
+.tile-drag   { opacity: 0.85; }
 
 /* Dot pada tile tangan: hitam/gelap */
 .tile.hand .dot {

@@ -11,6 +11,7 @@ let gameState  = null;
 let pendingTile = null;
 let roundReadyCount = 0; // track how many players clicked next round
 let myHandOrder = []; // track custom sorted order of hand
+let sortableInstance = null; // keep SortableJS instance
 
 // ─── DOM HELPERS ──────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -241,14 +242,9 @@ function renderBoard(gs) {
     board.innerHTML = '';
     const tiles = gs.board.tiles;
     if (!tiles.length) {
-        board.style.minWidth  = '180px';
-        board.style.minHeight = '60px';
-        board.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.18);font-size:.72rem;letter-spacing:1px;width:100%;height:100%;">Letakkan kartu pertama...</div>';
+        board.innerHTML = '<div class="board-empty-msg">Letakkan kartu pertama...</div>';
         return;
     }
-
-    board.style.minWidth  = 'auto';
-    board.style.minHeight = 'auto';
 
     tiles.forEach(t => {
         const isDouble = (t.l === t.r);
@@ -257,10 +253,12 @@ function renderBoard(gs) {
         board.appendChild(el);
     });
 
+    // Scroll board ke tengah setelah render
     const scroll = $('board-scroll');
     if (scroll) {
         requestAnimationFrame(() => {
-            scroll.scrollLeft = (scroll.scrollWidth - scroll.clientWidth) / 2;
+            const maxScroll = scroll.scrollWidth - scroll.clientWidth;
+            scroll.scrollLeft = maxScroll / 2;
         });
     }
 }
@@ -268,27 +266,30 @@ function renderBoard(gs) {
 // ── My Hand ──
 function renderMyHand(gs) {
     if (myIndex < 0) return;
-    const hand   = gs.hands[myIndex] || [];
     const handEl = $('my-hand');
     if (!handEl) return;
-    handEl.innerHTML = '';
 
-    const board   = gs.board;
+    const board    = gs.board;
     const isMyTurn = gs.turn === myIndex && gs.status === 'playing';
 
-    const playable = new Map();
-    // Sort hand according to custom order
-    hand.sort((a, b) => {
-        const keyA = `${a.l}-${a.r}`;
-        const keyB = `${b.l}-${b.r}`;
-        let idxA = myHandOrder.indexOf(keyA);
-        let idxB = myHandOrder.indexOf(keyB);
-        if (idxA === -1) idxA = 999;
-        if (idxB === -1) idxB = 999;
-        return idxA - idxB;
+    // Bangun daftar kartu berdasarkan urutan custom (drag)
+    let hand = gs.hands[myIndex] || [];
+
+    // Urutkan sesuai custom order; kartu baru ditambah di akhir
+    const orderedHand = [];
+    const unordered   = [...hand];
+    myHandOrder.forEach(key => {
+        const idx = unordered.findIndex(t => `${t.l}-${t.r}` === key || `${t.r}-${t.l}` === key);
+        if (idx !== -1) { orderedHand.push(unordered.splice(idx, 1)[0]); }
     });
+    // Kartu baru (belum ada di order) ditambah di ujung
+    hand = [...orderedHand, ...unordered];
+
+    // Update order tracker dengan hand terbaru
     myHandOrder = hand.map(t => `${t.l}-${t.r}`);
 
+    // Hitung playable
+    const playable = new Map();
     hand.forEach(t => {
         const sides = getPlayableSides(t, board, board.tiles.length === 0);
         if (sides.length) playable.set(`${t.l}-${t.r}`, sides);
@@ -306,6 +307,10 @@ function renderMyHand(gs) {
     setText('my-name-display', myPlayer.name + ' (Kamu)');
     setText('my-score-display', `${gs.scores[myIndex]} pts`);
 
+    // Destroy Sortable lama dulu sebelum rebuild DOM
+    if (sortableInstance) { try { sortableInstance.destroy(); } catch(e){} sortableInstance = null; }
+    handEl.innerHTML = '';
+
     hand.forEach(tile => {
         const key   = `${tile.l}-${tile.r}`;
         const sides = playable.get(key);
@@ -319,9 +324,15 @@ function renderMyHand(gs) {
         handEl.appendChild(el);
     });
 
+    // Init Sortable baru
     if (window.Sortable) {
-        Sortable.create(handEl, {
-            animation: 150,
+        sortableInstance = Sortable.create(handEl, {
+            animation: 200,
+            ghostClass: 'tile-ghost',
+            chosenClass: 'tile-chosen',
+            dragClass: 'tile-drag',
+            delay: 80,
+            delayOnTouchOnly: true,
             onEnd: function () {
                 const newOrder = [];
                 handEl.querySelectorAll('.tile').forEach(el => {
