@@ -760,3 +760,133 @@ socket.on('rtc-candidate', async data => {
     const pc = peerConnections[data.callerId];
     if (pc) await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
 });
+
+// ─── BACKGROUND MUSIC (Web Audio API) ────────────────────
+let audioCtx = null;
+let musicPlaying = false;
+let musicNodes = [];
+let musicScheduled = [];
+let musicTimeout = null;
+
+// Nada pentatonik tradisional (sunda/kalimantan nuansa)
+const PENTATONIC = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 784.00, 880.00];
+const BASS_NOTES = [65.41, 73.42, 82.41, 98.00, 110.00];
+
+function ensureAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playNote(freq, startTime, duration, gainVal, type = 'sine', dest = null) {
+    if (!audioCtx || !musicPlaying) return;
+    const osc = audioCtx.createOscillator();
+    const g   = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    g.gain.setValueAtTime(0, startTime);
+    g.gain.linearRampToValueAtTime(gainVal, startTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    osc.connect(g);
+    g.connect(dest || audioCtx.destination);
+    osc.start(startTime);
+    osc.stop(startTime + duration + 0.05);
+    musicNodes.push(osc);
+}
+
+function scheduleBar(barStart) {
+    if (!musicPlaying) return;
+    const bpm = 80;
+    const beat = 60 / bpm;
+    const bar = beat * 4;
+
+    // Reverb-like: master gain
+    const masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.45;
+    masterGain.connect(audioCtx.destination);
+
+    // === BASS (gentle pluck) ===
+    const bassPattern = [0, 0, 2, 0, 1, 0, 2, 0];
+    bassPattern.forEach((noteIdx, step) => {
+        const t = barStart + step * (beat / 2);
+        playNote(BASS_NOTES[noteIdx], t, beat * 0.6, 0.35, 'triangle', masterGain);
+    });
+
+    // === MELODY (pentatonik, slow) ===
+    const melodies = [
+        [4, null, 5, null, 3, null, 5, 4],
+        [5, null, 6, null, 4, null, 6, 5],
+        [3, 4, 5, null, 4, 3, null, 4],
+        [5, 6, 7, null, 5, 4, null, 5],
+    ];
+    const melodyIdx = (Math.floor((barStart / (beat * 4)) % melodies.length));
+    const melody = melodies[melodyIdx];
+    melody.forEach((noteIdx, step) => {
+        if (noteIdx === null) return;
+        const t = barStart + step * (beat / 2);
+        playNote(PENTATONIC[noteIdx], t, beat * 0.8, 0.18, 'sine', masterGain);
+    });
+
+    // === HI-HAT feel (softer, quiet) ===
+    for (let step = 0; step < 8; step++) {
+        if (step % 2 === 0) {
+            const t = barStart + step * (beat / 2);
+            const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.04, audioCtx.sampleRate);
+            const data = buf.getChannelData(0);
+            for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
+            const src = audioCtx.createBufferSource();
+            src.buffer = buf;
+            const hg = audioCtx.createGain();
+            hg.gain.setValueAtTime(0.04, t);
+            hg.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+            src.connect(hg);
+            hg.connect(masterGain);
+            src.start(t);
+            musicNodes.push(src);
+        }
+    }
+
+    // Schedule next bar
+    const nextBar = barStart + bar;
+    const delay = (nextBar - audioCtx.currentTime) * 1000 - 100;
+    musicTimeout = setTimeout(() => scheduleBar(nextBar), Math.max(delay, 0));
+}
+
+function startMusic() {
+    ensureAudioCtx();
+    musicPlaying = true;
+    const startAt = audioCtx.currentTime + 0.1;
+    scheduleBar(startAt);
+}
+
+function stopMusic() {
+    musicPlaying = false;
+    if (musicTimeout) { clearTimeout(musicTimeout); musicTimeout = null; }
+    musicNodes.forEach(n => { try { n.stop(audioCtx.currentTime + 0.05); } catch(e){} });
+    musicNodes = [];
+}
+
+// Music toggle button
+const btnMusic = $('btn-music');
+if (btnMusic) {
+    btnMusic.onclick = () => {
+        ensureAudioCtx();
+        if (!musicPlaying) {
+            startMusic();
+            btnMusic.className = 'music-btn music-on';
+            btnMusic.title = 'Musik: Nyala';
+            showToast('🎵 Musik dinyalakan');
+        } else {
+            stopMusic();
+            btnMusic.className = 'music-btn music-off';
+            btnMusic.title = 'Musik: Mati';
+            showToast('🔇 Musik dimatikan');
+        }
+    };
+    // Auto-start music on first game interaction (respects autoplay policy)
+    document.addEventListener('click', function startOnce() {
+        if (!musicPlaying && audioCtx === null) {
+            startMusic();
+        }
+        document.removeEventListener('click', startOnce);
+    }, { once: true });
+}
