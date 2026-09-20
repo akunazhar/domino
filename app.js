@@ -519,13 +519,19 @@ $('btn-pass').onclick = () => {
 
 // ─── ROUND END ────────────────────────────────────────────
 function renderRoundEnd(data) {
-    const { pitus, winnerId, roundScores, scores, players, status } = data;
+    const { pitus, winnerId, roundScores, scores, players, status, pitusInfo } = data;
     const roundIcon = $('round-icon');
     if (roundIcon) roundIcon.textContent = pitus ? '⚠️' : '🏆';
 
     const winnerName = players.find(p => p.index === winnerId)?.name || `AI ${(winnerId||0)+1}`;
     setText('round-title', pitus ? 'Angka Habis! (Permainan Buntu)' : `${winnerName} Menang Ronde!`);
-    setText('round-sub',   pitus ? `Tidak ada ujung yang cocok. ${winnerName} menang poin sisa terkecil!` : 'Kartu di tangan habis!');
+    
+    let subText = 'Kartu di tangan habis!';
+    if (pitus) {
+        let ujung = pitusInfo ? `(Ujung meja: ${pitusInfo.left} dan ${pitusInfo.right})` : '';
+        subText = `Tidak ada kartu cocok ${ujung}. ${winnerName} menang poin sisa terkecil!`;
+    }
+    setText('round-sub', subText);
 
     const allSlots = [];
     for (let i = 0; i < 4; i++)

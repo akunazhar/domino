@@ -254,6 +254,7 @@ function endRound(room, winnerId, pitus) {
         pitus, winnerId, roundScores,
         scores: room.scores, status: room.status,
         players: room.players,
+        pitusInfo: pitus ? { left: room.board.leftVal, right: room.board.rightVal } : null
     });
 }
 
