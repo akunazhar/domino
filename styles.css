@@ -262,14 +262,14 @@ html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family
 
 /* === HAND TILES (putih klasik) === */
 .tile.hand {
-    width:48px; height:96px;
+    width:38px; height:76px;
     flex-direction:column; align-items:center; justify-content:space-around;
     background:linear-gradient(135deg, var(--text), #E8D5B0);
     border:1px solid #A08050;
     box-shadow: 2px 4px 8px rgba(0,0,0,.4);
     cursor: grab;
     transition:transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s;
-    border-radius:8px;
+    border-radius:6px;
 }
 .tile.hand:active { cursor: grabbing; }
 .tile.hand .td {
@@ -338,7 +338,7 @@ html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family
 #timer-bar { height:100%; width:100%; background:var(--gold); border-radius:3px; transition:width .9s linear, background .3s; }
 #timer-bar.crit { background:var(--red); box-shadow:0 0 10px var(--red); }
 #timer-num { font-size:.8rem; font-weight:700; color:var(--gold); min-width:24px; text-align:right; }
-#my-hand { display:flex; gap:6px; overflow-x:auto; padding:4px 0 6px; min-height:104px; align-items:flex-end; scrollbar-width:thin; scrollbar-color:rgba(241,196,15,.2) transparent; }
+#my-hand { display:flex; gap:5px; overflow-x:auto; padding:4px 0 4px; min-height:82px; align-items:flex-end; scrollbar-width:thin; scrollbar-color:rgba(241,196,15,.2) transparent; }
 #action-bar { display:flex; gap:8px; }
 #action-bar .btn { flex:1; padding:10px; }
 
@@ -459,9 +459,9 @@ html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family
 .music-btn:hover { transform: scale(1.2); }
 
 @media (max-width: 600px) {
-    .tile.hand { width: 38px; height: 76px; }
-    .tile.H { width: 42px; height: 22px; }
-    .tile.V { width: 22px; height: 42px; }
-    .tile.H .dot, .tile.V .dot { width: 4px; height: 4px; }
-    .tile.hand .dot { width: 4px; height: 4px; }
+    .tile.hand { width: 32px; height: 64px; }
+    .tile.H { width: 40px; height: 20px; }
+    .tile.V { width: 20px; height: 40px; }
+    .tile.H .dot, .tile.V .dot { width: 3px; height: 3px; }
+    .tile.hand .dot { width: 5px; height: 5px; }
 }
