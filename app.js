@@ -260,11 +260,12 @@ function renderBoard(gs) {
         return;
     }
 
-    // Ukuran tile (harus cocok dengan CSS)
-    const TW = 52; // tile H width
-    const TH = 28; // tile H height  
-    const DW = 28; // tile V (double) width
-    const DH = 52; // tile V (double) height
+    // Ukuran tile (dinamis berdasarkan layar HP)
+    const isMobile = window.innerWidth <= 600;
+    const TW = isMobile ? 42 : 52; // tile H width
+    const TH = isMobile ? 22 : 28; // tile H height  
+    const DW = isMobile ? 22 : 28; // tile V (double) width
+    const DH = isMobile ? 42 : 52; // tile V (double) height
 
     // Hitung lebar area yang tersedia
     const scrollEl = $('board-scroll');
@@ -291,7 +292,8 @@ function renderBoard(gs) {
 
         if (needTurn) {
             // Naik ke baris baru (ke atas) agar tidak tertutup area tangan
-            cy -= (Math.max(rowH, DH) + 8); // 8px gap vertikal antar baris
+            const gap = isMobile ? 12 : 8;
+            cy -= (Math.max(rowH, DH) + gap); // gap vertikal antar baris
             dir *= -1; // balik arah
             rowH = 0;
             // Reset posisi horizontal
