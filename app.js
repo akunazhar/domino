@@ -135,6 +135,10 @@ socket.on('roundStarted', state => {
 
 socket.on('gameStateUpdate', state => {
     gameState = state;
+    if (state.turn !== myIndex) {
+        pendingTile = null;
+        hideOverlay('side-overlay');
+    }
     renderGame(state);
 });
 
@@ -301,7 +305,7 @@ function renderBoard(gs) {
         }
 
         rowH = Math.max(rowH, h);
-        positions.push({ x, y, w, h, ori: isDouble ? 'V' : 'H', t });
+        positions.push({ x, y, w, h, ori: isDouble ? 'V' : 'H', t, dir });
     });
 
     // Hitung ukuran total board dan normalisasi Y
@@ -330,7 +334,9 @@ function renderBoard(gs) {
 
     // Render semua tile di posisi absolut
     positions.forEach(p => {
-        const el = makeTile(p.t.l, p.t.r, p.ori, '');
+        const renderL = p.dir === 1 ? p.t.l : p.t.r;
+        const renderR = p.dir === 1 ? p.t.r : p.t.l;
+        const el = makeTile(renderL, renderR, p.ori, '');
         el.style.position = 'absolute';
         el.style.left = p.x + 'px';
         el.style.top = p.y + 'px';
@@ -394,7 +400,8 @@ function renderMyHand(gs) {
         const el = makeTile(tile.l, tile.r, 'hand', canPlay ? 'ok' : 'no');
         el.dataset.key = key;
         if (canPlay) {
-            el.onclick = () => { if (!isDragging) handleTileClick(tile, sides); };
+            el.onpointerup = () => { if (!isDragging) handleTileClick(tile, sides); };
+            el.onclick = (e) => e.preventDefault(); // cegah klik ganda di mobile
         }
         handEl.appendChild(el);
     });
