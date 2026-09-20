@@ -122,7 +122,7 @@ const rooms = {};
 function makeRoom(roomId, isPublic) {
     return {
         id: roomId, isPublic,
-        password: null,
+        isPublic: false,
         players: [],              // [{id, name, index}]
         scores: [0, 0, 0, 0],    // total scores per seat
         round: 0,
@@ -375,20 +375,18 @@ io.on('connection', socket => {
         }
     });
 
-    socket.on('createRoom', ({ name, password }) => {
+    socket.on('createRoom', ({ name }) => {
         const roomId = Math.random().toString(36).slice(2, 8).toUpperCase();
         const room   = makeRoom(roomId, false);
-        room.password = password || null;
         rooms[roomId] = room;
         joinRoom(socket, room, name || 'Player');
     });
 
-    socket.on('joinRoom', ({ roomId, name, password }) => {
+    socket.on('joinRoom', ({ roomId, name }) => {
         const room = rooms[roomId?.toUpperCase()];
         if (!room)                            return socket.emit('error', 'Room tidak ditemukan');
         if (room.status !== 'lobby')          return socket.emit('error', 'Game sudah dimulai');
         if (room.players.length >= 4)         return socket.emit('error', 'Room penuh');
-        if (room.password && room.password !== password) return socket.emit('error', 'Password salah');
         joinRoom(socket, room, name || 'Player');
     });
 

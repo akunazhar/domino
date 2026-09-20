@@ -61,13 +61,13 @@ function resetQuickplayBtn() {
 
 $('btn-create-confirm').onclick = () => {
     myName = $('my-name-input').value.trim() || 'Player';
-    socket.emit('createRoom', { name: myName, password: $('create-pass').value });
+    socket.emit('createRoom', { name: myName });
 };
 $('btn-join-confirm').onclick = () => {
     myName = $('my-name-input').value.trim() || 'Player';
     const code = $('join-code').value.replace(/\s+/g, '').toUpperCase();
     if (code.length < 5) return showError('Masukkan kode yang valid (min 5 karakter)');
-    socket.emit('joinRoom', { roomId: code, name: myName, password: $('join-pass').value });
+    socket.emit('joinRoom', { roomId: code, name: myName });
 };
 $('btn-start-game').onclick = () => socket.emit('startGame', myRoomId);
 
