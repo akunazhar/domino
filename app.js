@@ -512,8 +512,8 @@ function renderRoundEnd(data) {
     if (roundIcon) roundIcon.textContent = pitus ? '⚠️' : '🏆';
 
     const winnerName = players.find(p => p.index === winnerId)?.name || `AI ${(winnerId||0)+1}`;
-    setText('round-title', pitus ? 'PITUS! Papan Buntu!' : `${winnerName} Menang Ronde!`);
-    setText('round-sub',   pitus ? `${winnerName} menang karena poin sisa terkecil!` : 'Kartu habis!');
+    setText('round-title', pitus ? 'Angka Habis! (Permainan Buntu)' : `${winnerName} Menang Ronde!`);
+    setText('round-sub',   pitus ? `Tidak ada ujung yang cocok. ${winnerName} menang poin sisa terkecil!` : 'Kartu di tangan habis!');
 
     const allSlots = [];
     for (let i = 0; i < 4; i++)

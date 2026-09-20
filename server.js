@@ -212,18 +212,6 @@ function executeMove(room, pIdx, tileData, side) {
         endRound(room, pIdx, false); return true;
     }
 
-    // ── Cek KEPOTONG / PITUS (Aturan Kalimantan) ──────────────────
-    // Jika ujung kiri dan ujung kanan papan bernilai sama → LANGSUNG KEPOTONG
-    // Tidak perlu semua kartu keluar, cukup kedua ujung sama
-    const lv = room.board.leftVal;
-    const rv = room.board.rightVal;
-    if (lv !== null && rv !== null && lv === rv && room.board.tiles.length > 1) {
-        console.log(`KEPOTONG! Ujung kiri = ${lv}, ujung kanan = ${rv}`);
-        endRound(room, null, true);
-        return true;
-    }
-
-
     nextTurn(room);
     return true;
 }
