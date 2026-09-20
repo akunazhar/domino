@@ -1,21 +1,22 @@
 /* ── ROOT ─────────────────────────────────────────────── */
 :root {
-    --bg:       #0f1015;
-    --surf:     #171923;
-    --surf2:    #232736;
-    --border:   rgba(255,255,255,0.05);
-    --gold:     #f5b041;
-    --gold-d:   rgba(245,176,65,0.12);
+    --bg:       #1A0F00;
+    --surf:     rgba(26, 15, 0, 0.88);
+    --surf2:    rgba(0, 0, 0, 0.5);
+    --border:   rgba(212, 175, 55, 0.3);
+    --gold:     #D4AF37;
+    --gold-d:   rgba(212, 175, 55, 0.15);
     --green:    #2ecc71;
     --red:      #e74c3c;
-    --text:     #f0f1f5;
-    --dim:      #8a90a5;
-    --font:     'Outfit', sans-serif;
+    --text:     #F5E6C8;
+    --dim:      #c2b291;
+    --font:     'Nunito', sans-serif;
+    --font-h:   'Cinzel', serif;
     --r:        14px;
-    --shadow:   0 8px 30px rgba(0,0,0,0.3);
+    --shadow:   0 8px 30px rgba(0,0,0,0.5);
 }
 *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
-html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family:var(--font); background:var(--bg); color:var(--text); }
+html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family:var(--font); background: radial-gradient(circle at center, #2D5A27, #1A0F00); color:var(--text); }
 
 /* ── SCREENS ──────────────────────────────────────────── */
 .screen { position:fixed; inset:0; display:none; }
@@ -35,12 +36,13 @@ html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family
 @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
 .lobby-card h1 {
     font-size:2.4rem; font-weight:900;
-    background:linear-gradient(135deg,#f1c40f,#e67e22);
+    font-family: var(--font-h);
+    background:linear-gradient(135deg,var(--gold),#B8860B);
     -webkit-background-clip:text; background-clip:text;
     -webkit-text-fill-color:transparent;
-    margin:4px 0;
+    margin:4px 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
 }
-.lobby-sub { color:var(--dim); font-size:.85rem; margin-bottom:24px; }
+.lobby-sub { color:var(--dim); font-size:.9rem; margin-bottom:24px; font-family: var(--font-h); letter-spacing: 1px; }
 .lobby-card h3 { font-size:1rem; color:var(--gold); margin:16px 0 10px; }
 
 .name-input {
@@ -62,8 +64,8 @@ html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family
 .btn:hover:not(:disabled) { opacity:.9; }
 .btn:active:not(:disabled) { transform:scale(.96); }
 .btn:disabled { opacity:.5; cursor:not-allowed; }
-.btn-primary  { background:linear-gradient(135deg,#f1c40f,#e67e22); color:#000; }
-.btn-primary:hover:not(:disabled) { box-shadow:0 0 16px rgba(241,196,15,.35); }
+.btn-primary  { background:linear-gradient(135deg,var(--gold),#B8860B); color:#000; border:none; }
+.btn-primary:hover:not(:disabled) { box-shadow:0 0 16px rgba(212, 175, 55, 0.5); }
 .btn-secondary{ background:var(--surf2); color:var(--text); border:1px solid var(--border); }
 .btn-danger   { background:rgba(231,76,60,.15); color:var(--red); border:1px solid rgba(231,76,60,.3); }
 .btn-ghost    { background:transparent; color:var(--dim); }
@@ -176,10 +178,9 @@ html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family
 /* ── BOARD ────────────────────────────────────────────── */
 #board-area {
     flex:1; display:flex; flex-direction:column;
-    background:
-        radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.6) 100%),
-        linear-gradient(135deg, #5c3a21, #361F0C);
+    background: radial-gradient(ellipse at center, rgba(45,90,39,0.3) 0%, rgba(26,15,0,0.8) 100%), linear-gradient(135deg, #2D5A27, #1A0F00);
     overflow:hidden; position:relative;
+    border: 2px solid var(--gold); border-radius: 8px; margin: 5px;
 }
 #board-meta {
     position:absolute; top:6px; left:50%; transform:translateX(-50%);
@@ -197,7 +198,7 @@ html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 3px;
+    gap: 0px; /* Jarak dihilangkan agar kartu menyambung (tanpa putus) */
     flex-shrink: 0;
     flex-wrap: nowrap;
     padding: 20px;
@@ -231,59 +232,57 @@ html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family
 
 /* === BASE TILE === */
 .tile {
-    border-radius:6px; border:1px solid rgba(122,80,16,0.5);
-    box-shadow:0 6px 16px rgba(0,0,0,.4), inset 0 2px 5px rgba(255,255,255,.3);
+    border-radius:6px; border:1px solid #A08050;
+    box-shadow:2px 4px 8px rgba(0,0,0,0.4);
     display:flex; position:relative; user-select:none; flex-shrink:0;
 }
 
-/* === BOARD TILES (kuning seperti domino asli) === */
+/* === BOARD TILES === */
 .tile.H {
-    /* Tile normal di papan: landscape (kiri=l, kanan=r) */
     width:52px; height:28px;
     flex-direction:row; align-items:center; justify-content:space-around;
-    background:linear-gradient(145deg, #ffeaa7 0%, #fdcb6e 50%, #e1b12c 100%);
+    background:linear-gradient(135deg, var(--text), #E8D5B0);
 }
 .tile.H .td {
-    height:80%; width:1.5px;
-    background:#7a5010;
+    height:80%; width:1px;
+    background:#664020;
     position:absolute; left:50%; top:10%;
 }
 
 .tile.V {
-    /* Double tile: portrait (tegak, tegak lurus rantai) */
     width:28px; height:52px;
     flex-direction:column; align-items:center; justify-content:space-around;
-    background:linear-gradient(145deg, #ffeaa7 0%, #fdcb6e 50%, #e1b12c 100%);
+    background:linear-gradient(135deg, var(--text), #E8D5B0);
 }
 .tile.V .td {
-    width:80%; height:1.5px;
-    background:#7a5010;
+    width:80%; height:1px;
+    background:#664020;
     position:absolute; top:50%; left:10%;
 }
 
-/* Dot pada tile papan: MERAH */
+/* Dot pada tile papan: MERAH GELAP */
 .tile.H .dot, .tile.V .dot {
     width:5px; height:5px;
-    background:radial-gradient(circle at 30% 30%, #ff7675, #d63031);
-    box-shadow: inset 0 -1px 2px rgba(0,0,0,.4), 0 1px 1px rgba(255,255,255,.3);
+    background: #8B0000;
+    box-shadow: inset 1px 1px 2px rgba(0,0,0,0.5);
 }
 
 /* === HAND TILES (putih klasik) === */
 .tile.hand {
     width:48px; height:96px;
     flex-direction:column; align-items:center; justify-content:space-around;
-    background:linear-gradient(145deg,#ffffff 0%,#f1f2f6 100%);
-    border:1px solid rgba(0,0,0,.15);
-    box-shadow: 0 4px 12px rgba(0,0,0,.15);
+    background:linear-gradient(135deg, var(--text), #E8D5B0);
+    border:1px solid #A08050;
+    box-shadow: 2px 4px 8px rgba(0,0,0,.4);
     cursor: grab;
     transition:transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s;
     border-radius:8px;
 }
 .tile.hand:active { cursor: grabbing; }
 .tile.hand .td {
-    width:85%; height:1.5px;
-    background:#ccc;
-    position:absolute; top:50%; left:7.5%;
+    width:80%; height:1px;
+    background:#664020;
+    position:absolute; top:50%; left:10%;
 }
 .tile.hand:hover { transform:translateY(-11px) scale(1.06); }
 .tile.hand.ok    { box-shadow:0 0 20px rgba(46,204,113,.6), 0 8px 16px rgba(0,0,0,.2); border-color:var(--green); }
@@ -299,8 +298,8 @@ html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family
 /* Dot pada tile tangan: hitam/gelap */
 .tile.hand .dot {
     width:8px; height:8px;
-    background:#1a1a2e;
-    box-shadow:inset 0 1px 2px rgba(0,0,0,.7);
+    background:#222;
+    box-shadow:inset 1px 1px 2px rgba(0,0,0,.5);
 }
 
 /* Tile halves grid */
