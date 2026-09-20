@@ -43,43 +43,6 @@ class Board {
             this.leftVal = tile.l; this.rightVal = tile.r; return;
         }
 
-        // --- CEK POTONG TENGAH (PRIORITAS) ---
-        // Potong Tengah diutamakan jika side === 'middle' ATAU match ditemukan di tengah (bukan ujung)
-        let midIndex = -1;
-        let matchVal = -1;
-
-        // Jika side === 'middle', cari di mana pun
-        // Jika side normal, cari hanya di internal (untuk menghindari salah potong saat sambung biasa)
-        const startIdx = (side === 'middle') ? this.tiles.length - 1 : this.tiles.length - 2;
-        const endIdx   = (side === 'middle') ? 0 : 1;
-
-        for (let i = startIdx; i >= endIdx; i--) {
-            const t = this.tiles[i];
-            if (tile.l === t.l || tile.l === t.r) { midIndex = i; matchVal = tile.l; break; }
-            if (tile.r === t.l || tile.r === t.r) { midIndex = i; matchVal = tile.r; break; }
-        }
-
-        if (midIndex !== -1) {
-            this.tiles = this.tiles.slice(midIndex);
-
-            let newT = tile;
-            if (newT.r !== matchVal) newT = newT.flipped();
-
-            if (this.tiles[0].l !== matchVal) {
-                const old = this.tiles[0];
-                this.tiles[0] = { l: old.r, r: old.l, ori: old.ori };
-            }
-
-            this.tiles.unshift({ l: newT.l, r: newT.r, ori: newT.isDouble ? 'V' : 'H' });
-
-            // UPDATE ENDS
-            this.updateEnds();
-            
-            this.checkAutoCut();
-            return;
-        }
-
-        // --- ATURAN NORMAL ---
         if (side === 'left') {
             let t = tile;
             if (t.r !== this.leftVal) t = t.flipped();
@@ -91,44 +54,6 @@ class Board {
             this.tiles.push({ l: t.l, r: t.r, ori: t.isDouble ? 'V' : 'H' });
             this.rightVal = t.r;
         }
-
-        this.checkAutoCut();
-    }
-
-    checkAutoCut() {
-        if (this.tiles.length < 3) return;
-
-        let changed = false;
-
-        // 1. Jika leftVal ada di kartu mana pun di tengah, buang bagian depannya
-        // Cari dari belakang agar membuang sebanyak mungkin
-        for (let i = this.tiles.length - 1; i >= 1; i--) {
-            if (this.leftVal === this.tiles[i].l || this.leftVal === this.tiles[i].r) {
-                this.tiles = this.tiles.slice(i);
-                if (this.tiles[0].l !== this.leftVal) {
-                    const old = this.tiles[0];
-                    this.tiles[0] = { l: old.r, r: old.l, ori: old.ori };
-                }
-                changed = true;
-                break;
-            }
-        }
-
-        // 2. Jika rightVal ada di kartu mana pun di tengah, buang bagian belakangnya
-        // Cari dari depan agar membuang sebanyak mungkin
-        for (let i = 0; i <= this.tiles.length - 2; i++) {
-            if (this.rightVal === this.tiles[i].l || this.rightVal === this.tiles[i].r) {
-                this.tiles = this.tiles.slice(0, i + 1);
-                if (this.tiles[this.tiles.length - 1].r !== this.rightVal) {
-                    const old = this.tiles[this.tiles.length - 1];
-                    this.tiles[this.tiles.length - 1] = { l: old.r, r: old.l, ori: old.ori };
-                }
-                changed = true;
-                break;
-            }
-        }
-
-        if (changed) this.updateEnds();
     }
 
     updateEnds() {
@@ -144,16 +69,6 @@ class Board {
     getPlayableSides(tile, boardEmpty) {
         if (boardEmpty) return ['start'];
         const sides = [];
-        
-        // Cek kecocokan di seluruh kartu (Potong Tengah)
-        for (let i = 0; i < this.tiles.length; i++) {
-            if (tile.matches(this.tiles[i].l) || tile.matches(this.tiles[i].r)) {
-                if (!sides.includes('middle')) sides.push('middle');
-                break; 
-            }
-        }
-
-        // Tetap tambahkan left/right untuk kompatibilitas UI
         if (tile.matches(this.leftVal))  sides.push('left');
         if (tile.matches(this.rightVal)) sides.push('right');
         return sides;
