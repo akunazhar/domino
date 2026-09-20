@@ -10,6 +10,7 @@ let myName     = 'Player';
 let gameState  = null;
 let pendingTile = null;
 let roundReadyCount = 0; // track how many players clicked next round
+let myHandOrder = []; // track custom sorted order of hand
 
 // ─── DOM HELPERS ──────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -276,6 +277,18 @@ function renderMyHand(gs) {
     const isMyTurn = gs.turn === myIndex && gs.status === 'playing';
 
     const playable = new Map();
+    // Sort hand according to custom order
+    hand.sort((a, b) => {
+        const keyA = `${a.l}-${a.r}`;
+        const keyB = `${b.l}-${b.r}`;
+        let idxA = myHandOrder.indexOf(keyA);
+        let idxB = myHandOrder.indexOf(keyB);
+        if (idxA === -1) idxA = 999;
+        if (idxB === -1) idxB = 999;
+        return idxA - idxB;
+    });
+    myHandOrder = hand.map(t => `${t.l}-${t.r}`);
+
     hand.forEach(t => {
         const sides = getPlayableSides(t, board, board.tiles.length === 0);
         if (sides.length) playable.set(`${t.l}-${t.r}`, sides);
@@ -299,11 +312,25 @@ function renderMyHand(gs) {
         const canPlay = isMyTurn && !!sides;
 
         const el = makeTile(tile.l, tile.r, 'hand', canPlay ? 'ok' : 'no');
+        el.dataset.key = key;
         if (canPlay) {
             el.onclick = () => handleTileClick(tile, sides);
         }
         handEl.appendChild(el);
     });
+
+    if (window.Sortable) {
+        Sortable.create(handEl, {
+            animation: 150,
+            onEnd: function () {
+                const newOrder = [];
+                handEl.querySelectorAll('.tile').forEach(el => {
+                    newOrder.push(el.dataset.key);
+                });
+                myHandOrder = newOrder;
+            }
+        });
+    }
 }
 
 function getPlayableSides(tile, board, boardEmpty) {
@@ -337,6 +364,23 @@ function renderActions(gs) {
     const passBtn = $('btn-pass');
     if (drawBtn) drawBtn.classList.toggle('hidden', !(isMyTurn && !canPlay && gs.boneyard > 0));
     if (passBtn) passBtn.classList.toggle('hidden', !(isMyTurn && !canPlay && gs.boneyard === 0));
+
+    // Auto-draw / Auto-pass logic
+    if (isMyTurn && !canPlay) {
+        if (gs.boneyard > 0) {
+            setTimeout(() => {
+                if (gameState && gameState.turn === myIndex) {
+                    if (drawBtn) drawBtn.click();
+                }
+            }, 800);
+        } else {
+            setTimeout(() => {
+                if (gameState && gameState.turn === myIndex) {
+                    if (passBtn) passBtn.click();
+                }
+            }, 800);
+        }
+    }
 }
 
 function updateTimer(turn, time) {

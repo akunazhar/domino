@@ -438,7 +438,7 @@ function scheduleAI(room) {
         if (r.timerInterval) { clearInterval(r.timerInterval); r.timerInterval = null; }
         autoPlay(r);
         if (r.status === 'playing') startTimer(r.id);
-    }, 1500);
+    }, 2500);
 }
 
 // ─── SOCKET.IO ───────────────────────────────────────────
@@ -516,12 +516,10 @@ io.on('connection', socket => {
         if (!player || player.index !== room.turn) return;
         if (!room.boneyard.length) return;
 
-        // Draw up to 3 tiles or until playable
-        let drawn = 0;
+        // Draw until playable
         const board = room.board;
-        while (room.boneyard.length > 0 && drawn < 3) {
+        while (room.boneyard.length > 0) {
             room.hands[player.index].push(room.boneyard.pop());
-            drawn++;
             const newTile = room.hands[player.index][room.hands[player.index].length - 1];
             const sides = board.getPlayableSides(newTile, board.isEmpty());
             if (sides.length) break; // Got a playable tile, stop drawing

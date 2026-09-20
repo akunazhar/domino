@@ -194,8 +194,9 @@ html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family
     scrollbar-width:thin; scrollbar-color:rgba(241,196,15,.15) transparent;
 }
 #board { 
-    display: flex; align-items: center; justify-content: center; 
-    gap: 3px; flex-shrink: 0; padding: 20px; min-width: 100%;
+    display: flex; align-items: center; justify-content: flex-start; 
+    gap: 3px; flex-shrink: 0; padding: 20px; min-width: max-content;
+    margin: 0 auto;
 }
 #board .tile {
     animation: popInTile 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
