@@ -231,7 +231,7 @@ function endRound(room, winnerId, pitus) {
     
     if (pitus) {
         // Pitus: The player with the lowest pip count wins and gets 0 points!
-        const pipCounts = room.hands.map(h => h.reduce((s, t) => s + t.pips, 0));
+        const pipCounts = room.hands.map(h => h.reduce((s, t) => s + (t.l + t.r), 0));
         const minPips = Math.min(...pipCounts);
         winnerId = pipCounts.indexOf(minPips);
     }
@@ -239,7 +239,7 @@ function endRound(room, winnerId, pitus) {
     if (winnerId !== null) {
         // Winner gets 0 points. All other players get their remaining pip count as penalty.
         room.hands.forEach((h, i) => {
-            if (i !== winnerId) roundScores[i] = h.reduce((s, t) => s + t.pips, 0);
+            if (i !== winnerId) roundScores[i] = h.reduce((s, t) => s + (t.l + t.r), 0);
         });
     }
 
