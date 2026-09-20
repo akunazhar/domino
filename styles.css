@@ -189,20 +189,21 @@ html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family
 }
 #board-meta span { color:var(--gold); font-weight:700; }
 #board-scroll {
-    flex:1; overflow:auto; display:flex; align-items:center;
+    flex:1; overflow:auto; display:flex; align-items:center; justify-content:center;
     padding:36px 10px 10px;
     scrollbar-width:thin; scrollbar-color:rgba(241,196,15,.15) transparent;
 }
 #board { 
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 3px;
     flex-shrink: 0;
     flex-wrap: nowrap;
     padding: 20px;
-    min-width: max-content;
-    margin: 0 auto;
+    /* margin auto di dalam flex parent = center saat ada ruang, scroll saat overflow */
+    margin-left: auto;
+    margin-right: auto;
 }
 .board-empty-msg {
     display: flex; align-items: center; justify-content: center;
@@ -274,10 +275,11 @@ html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family
     background:linear-gradient(145deg,#ffffff 0%,#f1f2f6 100%);
     border:1px solid rgba(0,0,0,.15);
     box-shadow: 0 4px 12px rgba(0,0,0,.15);
-    cursor:pointer;
+    cursor: grab;
     transition:transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s;
     border-radius:8px;
 }
+.tile.hand:active { cursor: grabbing; }
 .tile.hand .td {
     width:85%; height:1.5px;
     background:#ccc;
@@ -290,9 +292,9 @@ html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family
 .tile.hand.sel   { transform:translateY(-14px) scale(1.08); box-shadow:0 0 20px var(--gold); border-color:var(--gold); }
 
 /* Drag & Drop states */
-.tile-ghost  { opacity: 0.35; background: rgba(245,176,65,.15) !important; }
-.tile-chosen { transform: translateY(-16px) scale(1.1) !important; box-shadow: 0 16px 40px rgba(0,0,0,.5), 0 0 20px rgba(245,176,65,.4) !important; }
-.tile-drag   { opacity: 0.85; }
+.tile-ghost  { opacity: 0.3; border: 2px dashed var(--gold) !important; }
+.tile-chosen { transform: translateY(-18px) scale(1.12) !important; box-shadow: 0 20px 50px rgba(0,0,0,.6), 0 0 24px rgba(245,176,65,.5) !important; z-index: 10; }
+.tile-drag   { opacity: 0.9; cursor: grabbing !important; }
 
 /* Dot pada tile tangan: hitam/gelap */
 .tile.hand .dot {

@@ -12,6 +12,7 @@ let pendingTile = null;
 let roundReadyCount = 0; // track how many players clicked next round
 let myHandOrder = []; // track custom sorted order of hand
 let sortableInstance = null; // keep SortableJS instance
+let isDragging = false;     // prevent click-fire during drag
 
 // ─── DOM HELPERS ──────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -319,7 +320,7 @@ function renderMyHand(gs) {
         const el = makeTile(tile.l, tile.r, 'hand', canPlay ? 'ok' : 'no');
         el.dataset.key = key;
         if (canPlay) {
-            el.onclick = () => handleTileClick(tile, sides);
+            el.onclick = () => { if (!isDragging) handleTileClick(tile, sides); };
         }
         handEl.appendChild(el);
     });
@@ -331,9 +332,13 @@ function renderMyHand(gs) {
             ghostClass: 'tile-ghost',
             chosenClass: 'tile-chosen',
             dragClass: 'tile-drag',
-            delay: 80,
-            delayOnTouchOnly: true,
+            forceFallback: true,       // JS fallback — lebih reliable cross-browser
+            fallbackTolerance: 5,      // px minimal sebelum dianggap drag
+            delay: 100,
+            delayOnTouchOnly: false,   // delay di semua device agar tidak konflik click
+            onStart: () => { isDragging = true; },
             onEnd: function () {
+                setTimeout(() => { isDragging = false; }, 100);
                 const newOrder = [];
                 handEl.querySelectorAll('.tile').forEach(el => {
                     newOrder.push(el.dataset.key);
