@@ -279,8 +279,8 @@ function renderBoard(gs) {
         if (dir === -1 && cx - w < MARGIN && i > 0) needTurn = true;
 
         if (needTurn) {
-            // Turun ke baris baru
-            cy += Math.max(rowH, DH) + 8; // 8px gap vertikal antar baris
+            // Naik ke baris baru (ke atas) agar tidak tertutup area tangan
+            cy -= (Math.max(rowH, DH) + 8); // 8px gap vertikal antar baris
             dir *= -1; // balik arah
             rowH = 0;
             // Reset posisi horizontal
@@ -304,16 +304,28 @@ function renderBoard(gs) {
         positions.push({ x, y, w, h, ori: isDouble ? 'V' : 'H', t });
     });
 
-    // Hitung ukuran total board
-    let maxX = 0, maxY = 0;
+    // Hitung ukuran total board dan normalisasi Y
+    let minX = 0, minY = 0, maxX = 0, maxY = 0;
+    if (positions.length > 0) {
+        minX = positions[0].x; minY = positions[0].y;
+        maxX = positions[0].x + positions[0].w; maxY = positions[0].y + positions[0].h;
+    }
     positions.forEach(p => {
+        minX = Math.min(minX, p.x);
+        minY = Math.min(minY, p.y);
         maxX = Math.max(maxX, p.x + p.w);
         maxY = Math.max(maxY, p.y + p.h);
     });
 
+    // Normalisasi posisi agar tidak ada yang negatif (karena naik ke atas)
+    positions.forEach(p => {
+        p.x -= minX;
+        p.y -= minY;
+    });
+
     boardEl.style.position = 'relative';
-    boardEl.style.width = maxX + 'px';
-    boardEl.style.height = maxY + 'px';
+    boardEl.style.width = (maxX - minX) + 'px';
+    boardEl.style.height = (maxY - minY) + 'px';
     boardEl.style.margin = 'auto';
 
     // Render semua tile di posisi absolut
