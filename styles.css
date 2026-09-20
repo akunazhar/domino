@@ -190,21 +190,14 @@ html,body { width:100%; height:100%; height:100dvh; overflow:hidden; font-family
 }
 #board-meta span { color:var(--gold); font-weight:700; }
 #board-scroll {
-    flex:1; overflow:auto; display:flex; align-items:center; justify-content:center;
-    padding:36px 10px 10px;
+    flex:1; overflow:auto; display:flex; align-items:flex-start; justify-content:center;
+    padding:36px 20px 10px;
     scrollbar-width:thin; scrollbar-color:rgba(241,196,15,.15) transparent;
 }
 #board { 
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 0px; /* Jarak dihilangkan agar kartu menyambung (tanpa putus) */
+    position: relative;
     flex-shrink: 0;
-    flex-wrap: nowrap;
-    padding: 20px;
-    /* margin auto di dalam flex parent = center saat ada ruang, scroll saat overflow */
-    margin-left: auto;
-    margin-right: auto;
+    min-height: 60px;
 }
 .board-empty-msg {
     display: flex; align-items: center; justify-content: center;

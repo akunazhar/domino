@@ -238,30 +238,92 @@ function renderOpponents(gs) {
 
 // ── Board snake layout ──
 function renderBoard(gs) {
-    const board = $('board');
-    if (!board) return;
-    board.innerHTML = '';
+    const boardEl = $('board');
+    if (!boardEl) return;
+    boardEl.innerHTML = '';
     const tiles = gs.board.tiles;
     if (!tiles.length) {
-        board.innerHTML = '<div class="board-empty-msg">Letakkan kartu pertama...</div>';
+        boardEl.innerHTML = '<div class="board-empty-msg">Letakkan kartu pertama...</div>';
+        boardEl.style.width = '';
+        boardEl.style.height = '';
         return;
     }
 
-    tiles.forEach(t => {
+    // Ukuran tile (harus cocok dengan CSS)
+    const TW = 52; // tile H width
+    const TH = 28; // tile H height  
+    const DW = 28; // tile V (double) width
+    const DH = 52; // tile V (double) height
+
+    // Hitung lebar area yang tersedia
+    const scrollEl = $('board-scroll');
+    const areaW = scrollEl ? scrollEl.clientWidth - 40 : 600; // padding 20px kiri+kanan
+    const MARGIN = 10; // margin dari tepi sebelum belok
+
+    // dir: 1 = kiri ke kanan, -1 = kanan ke kiri
+    let dir = 1;
+    let cx = 0; // posisi X saat ini
+    let cy = 0; // posisi Y saat ini
+    let rowH = 0; // tinggi baris tertinggi di baris ini
+    const positions = []; // {x, y, w, h, ori} untuk setiap tile
+
+    tiles.forEach((t, i) => {
         const isDouble = (t.l === t.r);
-        const ori = isDouble ? 'V' : 'H';
-        const el = makeTile(t.l, t.r, ori, '');
-        board.appendChild(el);
+        const w = isDouble ? DW : TW;
+        const h = isDouble ? DH : TH;
+
+        // Cek apakah tile ini melewati batas
+        let nextEdge = dir === 1 ? (cx + w) : (cx - w);
+        let needTurn = false;
+        if (dir === 1 && nextEdge > areaW - MARGIN && i > 0) needTurn = true;
+        if (dir === -1 && cx - w < MARGIN && i > 0) needTurn = true;
+
+        if (needTurn) {
+            // Turun ke baris baru
+            cy += Math.max(rowH, DH) + 8; // 8px gap vertikal antar baris
+            dir *= -1; // balik arah
+            rowH = 0;
+            // Reset posisi horizontal
+            if (dir === 1) { cx = 0; }
+            else { cx = areaW - MARGIN; }
+        }
+
+        // Posisikan tile
+        let x, y;
+        if (dir === 1) {
+            x = cx;
+            y = cy + (DH - h) / 2; // center vertikal terhadap tinggi double
+            cx += w; // gerak ke kanan
+        } else {
+            x = cx - w;
+            y = cy + (DH - h) / 2;
+            cx -= w; // gerak ke kiri
+        }
+
+        rowH = Math.max(rowH, h);
+        positions.push({ x, y, w, h, ori: isDouble ? 'V' : 'H', t });
     });
 
-    // Scroll board ke tengah setelah render
-    const scroll = $('board-scroll');
-    if (scroll) {
-        requestAnimationFrame(() => {
-            const maxScroll = scroll.scrollWidth - scroll.clientWidth;
-            scroll.scrollLeft = maxScroll / 2;
-        });
-    }
+    // Hitung ukuran total board
+    let maxX = 0, maxY = 0;
+    positions.forEach(p => {
+        maxX = Math.max(maxX, p.x + p.w);
+        maxY = Math.max(maxY, p.y + p.h);
+    });
+
+    boardEl.style.position = 'relative';
+    boardEl.style.width = maxX + 'px';
+    boardEl.style.height = maxY + 'px';
+    boardEl.style.margin = 'auto';
+
+    // Render semua tile di posisi absolut
+    positions.forEach(p => {
+        const el = makeTile(p.t.l, p.t.r, p.ori, '');
+        el.style.position = 'absolute';
+        el.style.left = p.x + 'px';
+        el.style.top = p.y + 'px';
+        boardEl.appendChild(el);
+    });
 }
 
 // ── My Hand ──
