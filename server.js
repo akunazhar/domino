@@ -468,6 +468,22 @@ io.on('connection', socket => {
         }, 300);
     });
 
+    // --- WebRTC Signaling ---
+    socket.on('rtc-offer', data => {
+        // data: { targetId, sdp }
+        io.to(data.targetId).emit('rtc-offer', { callerId: socket.id, sdp: data.sdp });
+    });
+    
+    socket.on('rtc-answer', data => {
+        // data: { targetId, sdp }
+        io.to(data.targetId).emit('rtc-answer', { callerId: socket.id, sdp: data.sdp });
+    });
+    
+    socket.on('rtc-candidate', data => {
+        // data: { targetId, candidate }
+        io.to(data.targetId).emit('rtc-candidate', { callerId: socket.id, candidate: data.candidate });
+    });
+
     socket.on('disconnect', () => {
         Object.values(rooms).forEach(room => {
             const idx = room.players.findIndex(p => p.id === socket.id);

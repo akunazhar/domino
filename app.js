@@ -98,6 +98,13 @@ socket.on('updateLobby', players => {
     });
     const countEl = $('player-list-count');
     if (countEl) setText('player-list-count', `${players.length}/4`);
+    
+    // Voice chat auto-connect if mic is on
+    if (typeof micEnabled !== 'undefined' && micEnabled) {
+        players.forEach(p => {
+            if (p.id !== socket.id && !peerConnections[p.id]) initiateCall(p.id);
+        });
+    }
 });
 
 socket.on('error', msg => { resetQuickplayBtn(); showError(msg); });
@@ -640,3 +647,114 @@ function showError(msg) {
     el.textContent = msg;
     setTimeout(() => { if (el) el.textContent = ''; }, 3500);
 }
+
+// ─── WEBRTC VOICE CHAT ────────────────────────────────────
+let localStream = null;
+const peerConnections = {}; // socket.id -> RTCPeerConnection
+const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+let micEnabled = false;
+
+const btnMic = $('btn-mic');
+if (btnMic) {
+    btnMic.onclick = async () => {
+        if (!micEnabled) {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                });
+                micEnabled = true;
+                btnMic.textContent = '🎤 Mic On';
+                btnMic.className = 'mic-on';
+                
+                // Init connection to all existing players in room
+                if (gameState && gameState.players) {
+                    gameState.players.forEach(p => {
+                        if (p.id !== socket.id) initiateCall(p.id);
+                    });
+                }
+            } catch (err) {
+                console.error('Mic error:', err);
+                showToast('Gagal mengakses Mikrofon. Pastikan Anda mengizinkannya.');
+            }
+        } else {
+            // Turn off mic
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            micEnabled = false;
+            btnMic.textContent = '🎤 Mic Off';
+            btnMic.className = 'mic-off';
+            // Close all connections
+            Object.values(peerConnections).forEach(pc => pc.close());
+            for (let id in peerConnections) delete peerConnections[id];
+            const audioContainer = $('audio-streams');
+            if (audioContainer) audioContainer.innerHTML = '';
+        }
+    };
+}
+
+function getPeerConnection(targetId) {
+    if (peerConnections[targetId]) return peerConnections[targetId];
+    const pc = new RTCPeerConnection(rtcConfig);
+    peerConnections[targetId] = pc;
+
+    if (localStream) {
+        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    }
+
+    pc.onicecandidate = e => {
+        if (e.candidate) {
+            socket.emit('rtc-candidate', { targetId, candidate: e.candidate });
+        }
+    };
+
+    pc.ontrack = e => {
+        const audioContainer = $('audio-streams');
+        let audioEl = document.getElementById('audio-' + targetId);
+        if (!audioEl) {
+            audioEl = document.createElement('audio');
+            audioEl.id = 'audio-' + targetId;
+            audioEl.autoplay = true;
+            if (audioContainer) audioContainer.appendChild(audioEl);
+        }
+        audioEl.srcObject = e.streams[0];
+    };
+    
+    // Auto-remove when disconnected
+    pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+            const audioEl = document.getElementById('audio-' + targetId);
+            if (audioEl) audioEl.remove();
+            delete peerConnections[targetId];
+        }
+    };
+
+    return pc;
+}
+
+async function initiateCall(targetId) {
+    const pc = getPeerConnection(targetId);
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    socket.emit('rtc-offer', { targetId, sdp: pc.localDescription });
+}
+
+socket.on('rtc-offer', async data => {
+    if (!micEnabled) return; // ignore if we don't have mic on
+    const pc = getPeerConnection(data.callerId);
+    await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    socket.emit('rtc-answer', { targetId: data.callerId, sdp: pc.localDescription });
+});
+
+socket.on('rtc-answer', async data => {
+    const pc = peerConnections[data.callerId];
+    if (pc) await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+});
+
+socket.on('rtc-candidate', async data => {
+    const pc = peerConnections[data.callerId];
+    if (pc) await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+});
